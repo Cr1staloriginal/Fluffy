@@ -5,9 +5,11 @@ from database import log_event
 class Logs(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        print("[DEBUG] Ког Logs загружен")
 
     @commands.Cog.listener()
     async def on_member_join(self, member: disnake.Member):
+        print(f"[DEBUG] on_member_join: {member}")
         embed = disnake.Embed(
             title="📥 Присоединился",
             description=f"{member.mention} ({member.id})",
@@ -20,6 +22,7 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: disnake.Member):
+        print(f"[DEBUG] on_member_remove: {member}")
         embed = disnake.Embed(
             title="📤 Покинул",
             description=f"{member.name}#{member.discriminator} ({member.id})",
@@ -31,6 +34,7 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_update(self, before: disnake.Member, after: disnake.Member):
+        print(f"[DEBUG] on_member_update: {before.display_name} -> {after.display_name}")
         # Логи изменения ролей
         if before.roles != after.roles:
             added = [r for r in after.roles if r not in before.roles]
@@ -64,6 +68,7 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: disnake.Message):
+        print(f"[DEBUG] on_message_delete: {message.author} - {message.content[:20]}")
         if message.author.bot:
             return
         embed = disnake.Embed(
@@ -79,17 +84,13 @@ class Logs(commands.Cog):
     async def on_message_edit(self, before: disnake.Message, after: disnake.Message):
         if before.author.bot or before.content == after.content:
             return
+        print(f"[DEBUG] on_message_edit: {before.author}")
         embed = disnake.Embed(
             title="✏ Изменено",
             description=f"**Автор:** {before.author.mention}\n**Канал:** {before.channel.mention}\n**Было:**\n{before.content[:500]}\n**Стало:**\n{after.content[:500]}",
             color=disnake.Color.blue(),
             timestamp=disnake.utils.utcnow()
         )
-        await self.bot.log_dispatcher.send("messages", embed)
-        await log_event("message_edit", f"{before.author.id}|{before.content or ''}->{after.content or ''}")
-
-def setup(bot):
-    bot.add_cog(Logs(bot))
         await self.bot.log_dispatcher.send("messages", embed)
         await log_event("message_edit", f"{before.author.id}|{before.content or ''}->{after.content or ''}")
 
