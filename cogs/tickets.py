@@ -1,7 +1,6 @@
 import disnake
 from disnake.ext import commands
 import asyncio
-import os
 from database import log_event
 
 TICKET_CATEGORY = 'Тикеты'
@@ -13,7 +12,6 @@ class Tickets(commands.Cog):
 
     @commands.slash_command(name="ticket", description="🎫 Создать тикет")
     async def ticket(self, inter: disnake.ApplicationCommandInteraction, reason: str = None):
-        """Создаёт тикет-канал для обращения"""
         guild = inter.guild
         if not guild:
             await inter.response.send_message("❌ Команда доступна только на сервере.", ephemeral=True)
@@ -23,7 +21,6 @@ class Tickets(commands.Cog):
         if not category:
             category = await guild.create_category(TICKET_CATEGORY)
 
-        # Права доступа: создатель и персонал
         overwrites = {
             guild.default_role: disnake.PermissionOverwrite(read_messages=False),
             inter.author: disnake.PermissionOverwrite(read_messages=True, send_messages=True)
@@ -41,7 +38,6 @@ class Tickets(commands.Cog):
         await ch.send(f"📩 Тикет от {inter.author.mention}\n📝 Причина: {reason or 'Не указана'}\n💬 Опишите свою проблему здесь. Персонал скоро свяжется с вами.")
         await inter.response.send_message(f"✅ Тикет создан: {ch.mention}", ephemeral=True)
 
-        # Лог в канал #тикеты
         embed = disnake.Embed(
             title="🎫 Создан тикет",
             color=disnake.Color.green(),
@@ -57,11 +53,10 @@ class Tickets(commands.Cog):
     @commands.slash_command(
         name="close_ticket",
         description="🔒 Закрыть текущий тикет",
-        default_member_permissions=disnake.Permissions.manage_channels
+        default_member_permissions=disnake.Permissions.manage_channels.value
     )
     @commands.has_permissions(manage_channels=True)
     async def close_ticket(self, inter: disnake.ApplicationCommandInteraction, channel: disnake.TextChannel = None):
-        """Закрывает тикет-канал (удаляет через 10 секунд)"""
         ch = channel or inter.channel
         if not ch.name.startswith("ticket-"):
             await inter.response.send_message("❌ Эта команда работает только в тикет-каналах.", ephemeral=True)
@@ -70,7 +65,6 @@ class Tickets(commands.Cog):
         await inter.response.send_message("⏳ Тикет будет удалён через 10 секунд...", ephemeral=True)
         await ch.send("🔒 Тикет закрывается. Спасибо за обращение!")
 
-        # Лог закрытия
         embed = disnake.Embed(
             title="🔒 Закрыт тикет",
             color=disnake.Color.red(),
@@ -85,9 +79,4 @@ class Tickets(commands.Cog):
         await log_event('ticket_close', f'{ch.id}')
 
 def setup(bot: commands.InteractionBot):
-    bot.add_cog(Tickets(bot))
-        await ch.delete()
-        await log_event('ticket_close', f'{ch.id}')
-
-def setup(bot):
     bot.add_cog(Tickets(bot))
