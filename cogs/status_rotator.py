@@ -47,7 +47,7 @@ class StatusRotator(commands.Cog):
 
         # Устанавливаем статус "Играет в ..."
         activity = disnake.Game(name=status_text)
-        await self.bot.change_presence(activity=activity)
+        await self.bot.change_presence(status=disnake.Status.idle, activity=activity)
         print(f"[StatusRotator] Статус обновлён: {status_text} (участник: {member.display_name})")
 
     @tasks.loop(minutes=30)
