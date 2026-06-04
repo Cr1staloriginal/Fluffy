@@ -35,7 +35,7 @@ class Tickets(commands.Cog):
             category=category,
             overwrites=overwrites
         )
-        await ch.send(f"📩 Тикет от {inter.author.mention}\n📝 Причина: {reason or 'Не указана'}\n💬 Опишите свою проблему здесь. Персонал скоро свяжется с вами.")
+        await ch.send(f"📩 Тикет от {inter.author.mention}\n📝 Причина: {reason or 'Не указана'}\n💬 Опишите свою проблему здесь. Персонал будет рассматривать заявку как можно скорее!")
         await inter.response.send_message(f"✅ Тикет создан: {ch.mention}", ephemeral=True)
 
         embed = disnake.Embed(
