@@ -79,7 +79,7 @@ class UserCommands(commands.Cog):
         responses = [
             f"{inter.author.mention} осторожно обнюхивает {member.mention}! 👃🐕",
             f"{inter.author.mention} тычется носом в {member.mention} — новый знакомый! 🐾",
-            f"{inter.author.mention} и {member.mention} об��ениваются запахами, виляя хвостами.",
+            f"{inter.author.mention} и {member.mention} обнюхиваются запахами, виляя хвостами.",
         ]
         await inter.response.send_message(random.choice(responses))
 
