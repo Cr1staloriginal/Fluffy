@@ -85,6 +85,28 @@ class UserCommands(commands.Cog):
             ]
             await inter.response.send_message(random.choice(responses))
 
+@commands.slash_command(name="съесть", description="🍽️ Съесть другого участника (в шутку, конечно)")
+async def eat(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+    """Съесть участника – игровая RP-команда"""
+    if member == inter.author:
+        responses = [
+            f"{inter.author.mention} попытался съесть себя, но понял, что это невозможно! 🤔",
+            f"{inter.author.mention} хотел себя съесть, но задумался о смысле бытия... 🧠",
+            f"{inter.author.mention} не может съесть сам себя – это противоречит законам физики! ⚛️"
+        ]
+        await inter.response.send_message(random.choice(responses))
+        return
+
+    responses = [
+        f"{inter.author.mention} с удовольствием съел {member.mention}! 🍽️ Очень вкусно!",
+        f"{inter.author.mention} проглотил {member.mention} целиком! 😋",
+        f"{inter.author.mention} откусил кусочек от {member.mention} и довольно замурчал! 🐱",
+        f"{inter.author.mention} съел {member.mention} и облизнулся! 👅",
+        f"{inter.author.mention} быстро умял {member.mention} – тот даже пискнуть не успел! ⚡",
+        f"{inter.author.mention} разделил {member.mention} на двоих с воображаемым другом... но всё съел сам! 🍴"
+    ]
+    await inter.response.send_message(random.choice(responses))
+
     @commands.slash_command(name="играть", description="🎾 Поиграть с участником")
     async def play(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
         if member == inter.author:
