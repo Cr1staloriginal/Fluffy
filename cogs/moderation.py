@@ -107,7 +107,10 @@ class Moderation(commands.Cog):
             await asyncio.sleep(minutes * 60)
             if role in member.roles:
                 await member.remove_roles(role)
-                await inter.followup.send(f"🔊 {member.mention} размучен.")
+                # Отправляем сообщение в канал вместо взаимодействия (которое может истечь)
+                channel = inter.channel
+                if channel:
+                    await channel.send(f"🔊 {member.mention} размучен.")
         except Exception as e:
             print(f"Ошибка при размучивании: {e}")
         finally:
