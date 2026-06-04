@@ -10,6 +10,7 @@ OWNER_ID = int(os.getenv("OWNER_ID", 0))
 class Moderation(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
+        self.active_mutes = {}  # Словарь для отслеживания активных мьютов
 
     @commands.slash_command(
         name="kick",
@@ -50,6 +51,9 @@ class Moderation(commands.Cog):
         if member.top_role >= guild.me.top_role:
             await inter.response.send_message("🚫 Роль пользователя выше или равна моей.", ephemeral=True)
             return
+        if member == inter.author:
+            await inter.response.send_message("🚫 Нельзя забанить себя.", ephemeral=True)
+            return
         await member.ban(reason=reason)
         await inter.response.send_message(f"🔨 {member.mention} был забанен. Причина: {reason}")
         embed = disnake.Embed(title="🔨 Бан", color=disnake.Color.dark_red(), timestamp=disnake.utils.utcnow())
@@ -69,11 +73,19 @@ class Moderation(commands.Cog):
         if not guild or not guild.me:
             await inter.response.send_message("❌ Команда доступна только на сервере.", ephemeral=True)
             return
+        if member.top_role >= guild.me.top_role:
+            await inter.response.send_message("🚫 Роль пользователя выше или равна моей.", ephemeral=True)
+            return
+        if member == inter.author:
+            await inter.response.send_message("🚫 Нельзя замьютить себя.", ephemeral=True)
+            return
+        
         role = disnake.utils.get(guild.roles, name=MUTED_ROLE_NAME)
         if role is None:
             role = await guild.create_role(name=MUTED_ROLE_NAME)
             for channel in guild.channels:
                 await channel.set_permissions(role, send_messages=False, speak=False, add_reactions=False)
+        
         await member.add_roles(role, reason=reason)
         await inter.response.send_message(f"🔇 {member.mention} замучен на {minutes} мин.")
         embed = disnake.Embed(title="🔇 Мут", color=disnake.Color.orange(), timestamp=disnake.utils.utcnow())
@@ -82,10 +94,25 @@ class Moderation(commands.Cog):
         embed.add_field(name="Длительность", value=f"{minutes} мин.", inline=False)
         embed.add_field(name="Причина", value=reason or "Не указана", inline=False)
         await self.bot.log_dispatcher.send("mod", embed)
-        await asyncio.sleep(minutes * 60)
-        if role in member.roles:
-            await member.remove_roles(role)
-            await inter.followup.send(f"🔊 {member.mention} размучен.")
+        
+        # Запускаем размут в фоновом режиме
+        mute_key = f"{guild.id}_{member.id}"
+        self.active_mutes[mute_key] = asyncio.create_task(
+            self._unmute_after_delay(member, role, minutes, inter)
+        )
+
+    async def _unmute_after_delay(self, member: disnake.Member, role: disnake.Role, minutes: int, inter: disnake.ApplicationCommandInteraction):
+        """Размучивает участника после истечения времени"""
+        try:
+            await asyncio.sleep(minutes * 60)
+            if role in member.roles:
+                await member.remove_roles(role)
+                await inter.followup.send(f"🔊 {member.mention} размучен.")
+        except Exception as e:
+            print(f"Ошибка при размучивании: {e}")
+        finally:
+            mute_key = f"{member.guild.id}_{member.id}"
+            self.active_mutes.pop(mute_key, None)
 
     @commands.slash_command(
         name="purge",
@@ -98,12 +125,12 @@ class Moderation(commands.Cog):
             await inter.response.send_message("❌ От 1 до 100.", ephemeral=True)
             return
         await inter.response.defer()
-        deleted = await inter.channel.purge(limit=amount + 1)
-        await inter.edit_original_response(content=f"🧹 Удалено {len(deleted) - 1} сообщений.")
+        deleted = await inter.channel.purge(limit=amount)
+        await inter.edit_original_response(content=f"🧹 Удалено {len(deleted)} сообщений.")
         embed = disnake.Embed(title="🧹 Очистка чата", color=disnake.Color.purple(), timestamp=disnake.utils.utcnow())
         embed.add_field(name="Канал", value=inter.channel.mention, inline=False)
         embed.add_field(name="Модератор", value=inter.author.mention, inline=False)
-        embed.add_field(name="Удалено", value=str(len(deleted) - 1), inline=False)
+        embed.add_field(name="Удалено", value=str(len(deleted)), inline=False)
         await self.bot.log_dispatcher.send("mod", embed)
 
 def setup(bot: commands.InteractionBot):
