@@ -22,42 +22,60 @@ class AutoMod(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: disnake.Message):
-        if message.author.bot or message.guild is None:
-            return
-        me = message.guild.me
-        if not message.channel.permissions_for(me).manage_messages:
-            return
-        content = message.content
-        if not content:
-            return
-
-        # Проверка CAPS: только для сообщений с буквами
-        if len(content) >= 5:  # Повышена минимальная длина
-            letters_count = sum(1 for c in content if c.isalpha())
-            if letters_count > 0:
-                caps_count = sum(1 for c in content if c.isupper() and c.isalpha())
-                if caps_count / letters_count * 100 > MAX_CAPS_PERCENT:
-                    await message.delete()
-                    await message.channel.send(f"{message.author.mention}, не пиши капсом!", delete_after=5)
-                    return
-
-        for i in range(len(content) - MAX_REPEAT_CHARS):
-            seq = content[i:i+MAX_REPEAT_CHARS+1]
-            if len(set(seq)) == 1 and len(seq) > MAX_REPEAT_CHARS:
-                await message.delete()
-                await message.channel.send(f"{message.author.mention}, слишком много повторов!", delete_after=5)
+        try:
+            if message.author.bot or message.guild is None:
+                return
+            me = message.guild.me
+            # Проверяем, можем ли мы удалять и отправлять сообщения в этот канал
+            perms = message.channel.permissions_for(me)
+            if not (perms.manage_messages and perms.send_messages):
+                return
+            content = message.content or ""
+            if not content:
                 return
 
-        if len(message.mentions) > MAX_MENTIONS:
-            await message.delete()
-            await message.channel.send(f"{message.author.mention}, не упоминай столько людей!", delete_after=5)
-            return
+            # Проверка CAPS: только для сообщений с буквами
+            if len(content) >= 5:  # Повышена минимальная длина
+                letters_count = sum(1 for c in content if c.isalpha())
+                if letters_count > 0:
+                    caps_count = sum(1 for c in content if c.isupper() and c.isalpha())
+                    if caps_count / letters_count * 100 > MAX_CAPS_PERCENT:
+                        await message.delete()
+                        try:
+                            await message.channel.send(f"{message.author.mention}, не пиши капсом!", delete_after=5)
+                        except Exception:
+                            pass
+                        return
 
-        lowered = content.lower()
-        if any(word in lowered for word in self.bad_words):
-            await message.delete()
-            await message.channel.send(f"{message.author.mention}, запрещённое слово!", delete_after=5)
-            return
+            # Детекция повторяющихся символов — безопасный диапазон
+            for i in range(max(0, len(content) - MAX_REPEAT_CHARS)):
+                seq = content[i:i+MAX_REPEAT_CHARS+1]
+                if len(seq) > MAX_REPEAT_CHARS and len(set(seq)) == 1:
+                    await message.delete()
+                    try:
+                        await message.channel.send(f"{message.author.mention}, слишком много повторов!", delete_after=5)
+                    except Exception:
+                        pass
+                    return
+
+            if len(message.mentions) > MAX_MENTIONS:
+                await message.delete()
+                try:
+                    await message.channel.send(f"{message.author.mention}, не упоминай столько людей!", delete_after=5)
+                except Exception:
+                    pass
+                return
+
+            lowered = content.lower()
+            if any(word in lowered for word in self.bad_words):
+                await message.delete()
+                try:
+                    await message.channel.send(f"{message.author.mention}, запрещённое слово!", delete_after=5)
+                except Exception:
+                    pass
+                return
+        except Exception as e:
+            print(f"AutoMod: ошибка в обработчике on_message: {e}")
 
 def setup(bot):
     bot.add_cog(AutoMod(bot))
