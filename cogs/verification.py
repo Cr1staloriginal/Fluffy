@@ -9,11 +9,38 @@ class AnketaModal(ui.Modal):
     def __init__(self, submit_channel_id: int):
         super().__init__(title="Отвечай честно и с большим шансом попадёшь к нам")
         self.submit_channel_id = submit_channel_id
-        self.add_item(ui.TextInput(label="Как вы узнали о нашем сервере?*", style=disnake.TextInputStyle.short, placeholder="Через рекламу, друга, парт фурри сообщества и т.д.", required=True, max_length=500))
-        self.add_item(ui.TextInput(label='Что для вас лично означает "фурри-фэндом"?', style=disnake.TextInputStyle.paragraph, required=True, max_length=1000))
-        self.add_item(ui.TextInput(label="Вас начнут оскорблять в чате, ваши действия?", style=disnake.TextInputStyle.paragraph, required=True, max_length=500))
-        self.add_item(ui.TextInput(label="Есть ли у вас фурсона? Если есть расскажи", style=disnake.TextInputStyle.paragraph, required=True, max_length=4000))
-        self.add_item(ui.TextInput(label="Ознакомились ли вы с правилами сервера?", style=disnake.TextInputStyle.short, required=True, max_length=500))
+        self.add_item(ui.TextInput(
+            label="Как вы узнали о нашем сервере?",
+            style=disnake.TextInputStyle.short,
+            placeholder="Через рекламу, друга, партнёрство или другое",
+            required=True,
+            max_length=200
+        ))
+        self.add_item(ui.TextInput(
+            label='Что для вас лично означает "фурри-фэндом"?',
+            style=disnake.TextInputStyle.paragraph,
+            required=True,
+            max_length=1000
+        ))
+        self.add_item(ui.TextInput(
+            label="Вас начнут оскорблять в чате, ваши действия?",
+            style=disnake.TextInputStyle.paragraph,
+            required=True,
+            max_length=500
+        ))
+        self.add_item(ui.TextInput(
+            label="Есть ли у вас фурсона? Если есть, расскажите",
+            style=disnake.TextInputStyle.paragraph,
+            required=False,
+            max_length=4000
+        ))
+        self.add_item(ui.TextInput(
+            label="Ознакомились ли вы с правилами сервера?",
+            style=disnake.TextInputStyle.short,
+            required=True,
+            placeholder="Да / Нет",
+            max_length=100
+        ))
 
     async def on_submit(self, interaction: disnake.ModalInteraction):
         answers = [item.value.strip() or "Нет ответа" for item in self.children]
@@ -33,13 +60,25 @@ class AnketaModal(ui.Modal):
         ]
         for q, a in zip(questions, answers):
             embed.add_field(name=q, value=a[:1024], inline=False)
-        await submit_channel.send(embed=embed)
-        await interaction.response.send_message("Спасибо! Анкета отправлена.", ephemeral=True)
+        try:
+            await submit_channel.send(embed=embed)
+        except Exception as e:
+            print(f"AnketaModal: не удалось отправить заявку в канал {self.submit_channel_id}: {e}")
+            try:
+                await interaction.response.send_message("Ошибка: не удалось отправить вашу заявку. Пожалуйста, свяжитесь с модерацией.", ephemeral=True)
+            except Exception:
+                pass
+            return
+        try:
+            await interaction.response.send_message("Спасибо! Анкета отправлена.", ephemeral=True)
+        except Exception:
+            pass
 
 class AnketaView(ui.View):
     def __init__(self, submit_channel_id: int):
         super().__init__(timeout=None)
         self.submit_channel_id = submit_channel_id
+
     @ui.button(label="Заявка", style=disnake.ButtonStyle.blurple, custom_id="anketa:submit_button")
     async def anketa_button(self, interaction: disnake.MessageInteraction, button: ui.Button):
         await interaction.response.send_modal(AnketaModal(self.submit_channel_id))
@@ -65,11 +104,18 @@ class AnketaCog(commands.Cog):
             await inter.response.send_message("Не найден канал '📝╔верификация'.", ephemeral=True)
             return
         embed = disnake.Embed(title="Добро пожаловать!", description="Нажмите кнопку для подачи заявки.", color=0x00ff88)
-        await channel.send(embed=embed, view=AnketaView(self.submit_channel_id))
-        await inter.response.send_message(f"✅ Отправлено в {channel.mention}", ephemeral=True)
+        try:
+            await channel.send(embed=embed, view=AnketaView(self.submit_channel_id))
+            await inter.response.send_message(f"✅ Отправлено в {channel.mention}", ephemeral=True)
+        except Exception as e:
+            print(f"AnketaCog: не удалось отправить сообщение в канал {getattr(channel,'id',channel)}: {e}")
+            await inter.response.send_message("❌ Не удалось опубликовать кнопку анкеты в указанный канал.", ephemeral=True)
 
     def cog_load(self):
-        self.bot.add_view(AnketaView(self.submit_channel_id))
+        try:
+            self.bot.add_view(AnketaView(self.submit_channel_id))
+        except Exception as e:
+            print(f"AnketaCog: не удалось добавить view при загрузке: {e}")
 
 def setup(bot: commands.InteractionBot):
     bot.add_cog(AnketaCog(bot))
