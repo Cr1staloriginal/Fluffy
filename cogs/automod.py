@@ -1,11 +1,10 @@
 import disnake
 from disnake.ext import commands
-from typing import List
 import os
 
 WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "words.txt")
 
-def load_bad_words() -> List[str]:
+def load_bad_words():
     if not os.path.exists(WORDS_FILE):
         return []
     with open(WORDS_FILE, "r", encoding="utf-8") as f:
@@ -16,66 +15,80 @@ MAX_REPEAT_CHARS = 10
 MAX_MENTIONS = 5
 
 class AutoMod(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
         self.bad_words = load_bad_words()
 
     @commands.Cog.listener()
     async def on_message(self, message: disnake.Message):
-        try:
-            if message.author.bot or message.guild is None:
-                return
-            me = message.guild.me
-            # Проверяем, можем ли мы удалять и отправлять сообщения в этот канал
-            perms = message.channel.permissions_for(me)
-            if not (perms.manage_messages and perms.send_messages):
-                return
-            content = message.content or ""
-            if not content:
-                return
+        if message.author.bot or message.guild is None:
+            return
+        if not message.channel.permissions_for(message.guild.me).manage_messages:
+            return
 
-            # Проверка CAPS: только для сообщений с буквами
-            if len(content) >= 5:  # Повышена минимальная длина
-                letters_count = sum(1 for c in content if c.isalpha())
-                if letters_count > 0:
-                    caps_count = sum(1 for c in content if c.isupper() and c.isalpha())
-                    if caps_count / letters_count * 100 > MAX_CAPS_PERCENT:
-                        await message.delete()
-                        try:
-                            await message.channel.send(f"{message.author.mention}, не пиши капсом!", delete_after=5)
-                        except Exception:
-                            pass
-                        return
+        content = message.content
+        if not content:
+            return
 
-            # Детекция повторяющихся символов — безопасный диапазон
-            for i in range(max(0, len(content) - MAX_REPEAT_CHARS)):
+        # Проверки по очереди
+        violation = None
+        rule_name = None
+
+        # 1. Капс
+        if len(content) > 10:
+            caps_count = sum(1 for c in content if c.isupper())
+            caps_percent = caps_count / len(content) * 100
+            if caps_percent > MAX_CAPS_PERCENT:
+                violation = f"Использование капса ({caps_percent:.0f}% заглавных)"
+                rule_name = "Правило 3.1: Не злоупотребляйте заглавными буквами"
+
+        # 2. Повторяющиеся символы
+        if not violation:
+            for i in range(len(content) - MAX_REPEAT_CHARS):
                 seq = content[i:i+MAX_REPEAT_CHARS+1]
-                if len(seq) > MAX_REPEAT_CHARS and len(set(seq)) == 1:
-                    await message.delete()
-                    try:
-                        await message.channel.send(f"{message.author.mention}, слишком много повторов!", delete_after=5)
-                    except Exception:
-                        pass
-                    return
+                if len(set(seq)) == 1:
+                    violation = f"Повтор символа '{seq[0]}' более {MAX_REPEAT_CHARS} раз подряд"
+                    rule_name = "Правило 3.2: Не спамьте повторяющимися символами"
+                    break
 
-            if len(message.mentions) > MAX_MENTIONS:
-                await message.delete()
-                try:
-                    await message.channel.send(f"{message.author.mention}, не упоминай столько людей!", delete_after=5)
-                except Exception:
-                    pass
-                return
+        # 3. Много упоминаний
+        if not violation and len(message.mentions) > MAX_MENTIONS:
+            violation = f"Массовое упоминание участников ({len(message.mentions)} упоминаний)"
+            rule_name = "Правило 3.3: Не упоминайте много людей без причины"
 
+        # 4. Запрещённые слова
+        if not violation:
             lowered = content.lower()
-            if any(word in lowered for word in self.bad_words):
+            for word in self.bad_words:
+                if word in lowered:
+                    violation = f"Использование запрещённого слова: {word}"
+                    rule_name = "Правило 2.1: Запрещена нецензурная лексика"
+                    break
+
+        if violation:
+            try:
                 await message.delete()
-                try:
-                    await message.channel.send(f"{message.author.mention}, запрещённое слово!", delete_after=5)
-                except Exception:
-                    pass
-                return
-        except Exception as e:
-            print(f"AutoMod: ошибка в обработчике on_message: {e}")
+            except:
+                pass
+
+            # Уведомление пользователю
+            await message.channel.send(
+                f"{message.author.mention} ⚠️ **Нарушение правил!**\n"
+                f"📋 **{rule_name}**\n"
+                f"❌ {violation}\n"
+                f"🔔 Вам выдано предупреждение. Администрация рассмотрит наказание.",
+                delete_after=10
+            )
+
+            # Отправляем варн в канал модерации
+            warns_cog = self.bot.get_cog("Warns")
+            if warns_cog:
+                await warns_cog.send_warn_to_mod_channel(
+                    user_id=message.author.id,
+                    reason=violation,
+                    rule_name=rule_name,
+                    message_link=message.jump_url
+                )
 
 def setup(bot):
     bot.add_cog(AutoMod(bot))
