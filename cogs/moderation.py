@@ -19,7 +19,7 @@ class Moderation(commands.Cog):
     @commands.slash_command(
         name="kick",
         description="Выгнать участника",
-        default_member_permissions=disnake.Permissions.kick_members  # без .value
+        default_member_permissions=disnake.Permissions.kick_members
     )
     @commands.has_permissions(kick_members=True)
     async def kick(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member, reason: Optional[str] = "Не указана"):
@@ -44,7 +44,7 @@ class Moderation(commands.Cog):
     @commands.slash_command(
         name="ban",
         description="Забанить участника",
-        default_member_permissions=disnake.Permissions.ban_members  # без .value
+        default_member_permissions=disnake.Permissions.ban_members
     )
     @commands.has_permissions(ban_members=True)
     async def ban(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member, reason: Optional[str] = "Не указана"):
@@ -66,7 +66,7 @@ class Moderation(commands.Cog):
     @commands.slash_command(
         name="mute",
         description="Выдать мьют участнику",
-        default_member_permissions=disnake.Permissions.manage_roles  # без .value
+        default_member_permissions=disnake.Permissions.manage_roles
     )
     @commands.has_permissions(manage_roles=True)
     async def mute(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member, minutes: int = 10, reason: Optional[str] = None):
@@ -98,7 +98,7 @@ class Moderation(commands.Cog):
     @commands.slash_command(
         name="purge",
         description="Удалить сообщения (1-100)",
-        default_member_permissions=disnake.Permissions.manage_messages  # без .value
+        default_member_permissions=disnake.Permissions.manage_messages
     )
     @commands.has_permissions(manage_messages=True)
     async def purge(self, inter: disnake.ApplicationCommandInteraction, amount: int = 10):
