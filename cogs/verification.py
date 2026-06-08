@@ -32,7 +32,7 @@ class AnketaModal(ui.Modal):
             max_length=4000
         ))
         self.add_item(ui.TextInput(
-            label="Назовите секретное слово в правилах",
+            label="Ознакомились ли вы с нашими правилами?",
             style=disnake.TextInputStyle.short,
             required=True,
             max_length=500
@@ -52,7 +52,7 @@ class AnketaModal(ui.Modal):
             "Что значит фурри-фэндом?",
             "Действия при оскорблениях?",
             "Расскажите о фурсоне",
-            "Секретное слово из правил"
+            "Ознакомились с правилами?"
         ]
         for q, a in zip(questions, answers):
             embed.add_field(name=q, value=a[:1024], inline=False)
