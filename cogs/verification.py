@@ -70,12 +70,12 @@ class AnketaView(ui.View):
 class AnketaCog(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
-        self.submit_channel_id = 1473275301319540840  # ЗАМЕНИТЕ НА СВОЙ ID
+        self.submit_channel_id = 1473275301319540840  # ЗАМЕНИТЕ
 
     @commands.slash_command(
         name="setup_anketa",
         description="Отправить кнопку анкеты в канал 📝│анкета",
-        default_member_permissions=disnake.Permissions.administrator  # без .value
+        default_member_permissions=disnake.Permissions.administrator
     )
     @commands.has_permissions(administrator=True)
     async def setup_anketa(self, inter: disnake.ApplicationCommandInteraction):
