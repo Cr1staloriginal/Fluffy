@@ -3,7 +3,7 @@ from disnake.ext import commands
 import asyncio
 from database import log_event
 
-TICKET_CATEGORY = 'Тикеты'
+TICKET_CATEGORY = '🎟️тикеты🎟️'
 STAFF_ROLE_NAMES = ['🦊 Хвостик порядка', '🦊 Старший хвостик', '🐾 Младшая лапка', '🐾 Старшая лапка', '🐾 Главная лапка']
 
 class Tickets(commands.Cog):
