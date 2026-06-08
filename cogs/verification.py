@@ -74,14 +74,14 @@ class AnketaCog(commands.Cog):
 
     @commands.slash_command(
         name="setup_anketa",
-        description="Отправить кнопку анкеты в канал 📝│анкета",
+        description="Отправить кнопку анкеты в канал 📝╔верификация",
         default_member_permissions=disnake.Permissions.administrator
     )
     @commands.has_permissions(administrator=True)
     async def setup_anketa(self, inter: disnake.ApplicationCommandInteraction):
-        channel = disnake.utils.get(inter.guild.text_channels, name="📝│анкета")
+        channel = disnake.utils.get(inter.guild.text_channels, name="📝╔верификация)
         if not channel:
-            await inter.response.send_message("Не найден канал '📝│анкета'.", ephemeral=True)
+            await inter.response.send_message("Не найден канал '📝╔верификация'.", ephemeral=True)
             return
         embed = disnake.Embed(title="Добро пожаловать!", description="Нажмите кнопку для подачи заявки.", color=0x00ff88)
         await channel.send(embed=embed, view=AnketaView(self.submit_channel_id))
