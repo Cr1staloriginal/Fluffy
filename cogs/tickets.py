@@ -44,7 +44,7 @@ class Tickets(commands.Cog):
     @commands.slash_command(
         name="close_ticket",
         description="🔒 Закрыть текущий тикет",
-        default_member_permissions=disnake.Permissions.manage_channels  # БЕЗ .value
+        default_member_permissions=disnake.Permissions.manage_channels
     )
     @commands.has_permissions(manage_channels=True)
     async def close_ticket(self, inter: disnake.ApplicationCommandInteraction, channel: disnake.TextChannel = None):
