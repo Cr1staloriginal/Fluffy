@@ -3,7 +3,7 @@ from disnake.ext import commands
 import asyncio
 from database import log_event
 
-TICKET_CATEGORY = '🎟️тикеты🎟️'
+TICKET_CATEGORY = 'Тикеты'
 STAFF_ROLE_NAMES = ['🦊 Хвостик порядка', '🦊 Старший хвостик', '🐾 Младшая лапка', '🐾 Старшая лапка', '🐾 Главная лапка']
 
 class Tickets(commands.Cog):
@@ -44,7 +44,7 @@ class Tickets(commands.Cog):
     @commands.slash_command(
         name="close_ticket",
         description="🔒 Закрыть текущий тикет",
-        default_member_permissions=disnake.Permissions.manage_channels
+        default_member_permissions=disnake.Permissions.manage_channels  # БЕЗ .value
     )
     @commands.has_permissions(manage_channels=True)
     async def close_ticket(self, inter: disnake.ApplicationCommandInteraction, channel: disnake.TextChannel = None):
