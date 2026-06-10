@@ -4,4 +4,4 @@
 [EN]
 I created this bot first for my Discord server, but I'll leave it all here if you want to learn its structures and generally build bots similar to mine.
 
-Enjoy — Aurifur 🌙
+Enjoy — Пушистик 🌙
