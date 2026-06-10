@@ -17,6 +17,7 @@ STAFF_ROLE_NAMES = [
 MOD_LOG_CHANNEL_ID = int(os.getenv("LOG_CH_TICKETS", 0))
 # -------------------
 
+
 class TicketModal(disnake.ui.Modal):
     def __init__(self):
         components = [
@@ -37,12 +38,11 @@ class TicketModal(disnake.ui.Modal):
         guild = interaction.guild
         author = interaction.user
 
-        # Проверка прав бота
         if not guild.me.guild_permissions.manage_channels:
             await interaction.edit_original_response(content="❌ У бота нет права `manage_channels`.")
             return
 
-        # Поиск или создание категории для активных тикетов
+        # Категория для активных тикетов
         category = disnake.utils.get(guild.categories, name=TICKET_CATEGORY_NAME)
         if not category:
             try:
@@ -52,10 +52,12 @@ class TicketModal(disnake.ui.Modal):
                 await interaction.edit_original_response(content=f"❌ Ошибка создания категории: {e}")
                 return
 
-        # Права доступа
+        # Права доступа для открытого тикета
         overwrites = {
             guild.default_role: disnake.PermissionOverwrite(read_messages=False),
-            author: disnake.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True, embed_links=True)
+            author: disnake.PermissionOverwrite(
+                read_messages=True, send_messages=True, attach_files=True, embed_links=True
+            ),
         }
         for role_name in STAFF_ROLE_NAMES:
             role = disnake.utils.get(guild.roles, name=role_name)
@@ -75,24 +77,28 @@ class TicketModal(disnake.ui.Modal):
             await interaction.edit_original_response(content=f"❌ Ошибка создания канала: {e}")
             return
 
-        # Приветственное сообщение с кнопкой "Закрыть тикет"
-        embed = disnake.Embed(
+        # Приветственное сообщение в тикет-канале с кнопкой закрытия
+        welcome_embed = disnake.Embed(
             title="📩 Ваш тикет создан",
-            description=f"**Причина:** {reason}\n\nОпишите вашу проблему подробнее. Персонал скоро свяжется с вами.",
+            description=f"**Причина:** {reason}\n\nОпишите проблему подробнее. Персонал скоро свяжется с вами.",
             color=disnake.Color.blurple()
         )
-        view = CloseTicketButton(channel.id, channel.name)  # передаём имя канала для логов
-        await channel.send(content=author.mention, embed=embed, view=view)
+        close_view = CloseTicketButton(channel.id, author.id)  # передаём ID создателя
+        await channel.send(content=author.mention, embed=welcome_embed, view=close_view)
 
-        # Отправляем подтверждение пользователю и удаляем его через 10 секунд
-        await interaction.edit_original_response(content=f"✅ Тикет создан: {channel.mention}")
-        await asyncio.sleep(10)
+        # Сохраняем информацию о тикете в БД (таблица tickets)
+        await log_event("ticket_open", f"{author.id}|{channel.id}|{reason}")  # уже есть
+        # Дополнительно можно создать запись, но log_event покрывает
+
+        # Временное подтверждение для пользователя (удаляется через 7 секунд)
+        confirm_msg = await interaction.edit_original_response(content=f"✅ Тикет создан: {channel.mention}")
+        await asyncio.sleep(7)
         try:
-            await interaction.delete_original_response()
+            await confirm_msg.delete()
         except:
             pass
 
-        # Логирование в канал модерации
+        # Лог в канал модерации
         log_embed = disnake.Embed(
             title="🎫 Создан тикет",
             color=disnake.Color.green(),
@@ -105,20 +111,20 @@ class TicketModal(disnake.ui.Modal):
             log_channel = interaction.bot.get_channel(MOD_LOG_CHANNEL_ID)
             if log_channel:
                 await log_channel.send(embed=log_embed)
-        await log_event("ticket_open", f"{author.id}|{channel.id}|{reason}")
 
 
 class CloseTicketButton(disnake.ui.View):
-    def __init__(self, channel_id: int, channel_name: str):
+    def __init__(self, channel_id: int, creator_id: int):
         super().__init__(timeout=None)
         self.channel_id = channel_id
-        self.channel_name = channel_name
+        self.creator_id = creator_id
 
     @disnake.ui.button(label="🔒 Закрыть тикет", style=disnake.ButtonStyle.danger, custom_id="close_ticket")
     async def close_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.channel.id != self.channel_id:
             await inter.response.send_message("❌ Эта кнопка работает только в этом канале.", ephemeral=True)
             return
+
         await inter.response.defer()
         member = inter.author
         is_staff = any(role.name in STAFF_ROLE_NAMES for role in member.roles) or member.guild_permissions.administrator
@@ -126,52 +132,67 @@ class CloseTicketButton(disnake.ui.View):
             await inter.followup.send("❌ Только персонал может закрыть тикет.", ephemeral=True)
             return
 
-        # Поиск или создание категории "Закрытые тикеты"
-        closed_category = disnake.utils.get(inter.guild.categories, name=CLOSED_CATEGORY_NAME)
+        guild = inter.guild
+
+        # Категория для закрытых тикетов
+        closed_category = disnake.utils.get(guild.categories, name=CLOSED_CATEGORY_NAME)
         if not closed_category:
             try:
-                closed_category = await inter.guild.create_category(CLOSED_CATEGORY_NAME)
+                closed_category = await guild.create_category(CLOSED_CATEGORY_NAME)
                 print(f"[Tickets] Создана категория {CLOSED_CATEGORY_NAME}")
             except Exception as e:
                 await inter.followup.send(f"❌ Не удалось создать категорию для закрытых тикетов: {e}")
                 return
 
-        # Перемещаем канал в категорию закрытых
+        # Новые права доступа: видит только персонал, создатель теряет доступ
+        new_overwrites = {
+            guild.default_role: disnake.PermissionOverwrite(read_messages=False),
+        }
+        for role_name in STAFF_ROLE_NAMES:
+            role = disnake.utils.get(guild.roles, name=role_name)
+            if role:
+                new_overwrites[role] = disnake.PermissionOverwrite(read_messages=True, send_messages=False)
+
+        # Убираем доступ для создателя, если он не входит в роли персонала
+        creator = guild.get_member(self.creator_id)
+        if creator and not any(role.name in STAFF_ROLE_NAMES for role in creator.roles):
+            new_overwrites[creator] = disnake.PermissionOverwrite(read_messages=False)
+
+        # Перемещаем канал и применяем новые права
         try:
-            await inter.channel.edit(category=closed_category)
+            await inter.channel.edit(category=closed_category, overwrites=new_overwrites)
         except Exception as e:
             await inter.followup.send(f"❌ Ошибка перемещения канала: {e}")
             return
 
-        # Отправляем сообщение о закрытии
-        await inter.channel.send("🔒 Тикет закрыт. Канал перемещён в архив.")
-        await inter.followup.send("✅ Тикет закрыт и перемещён в архив.")
+        await inter.channel.send("🔒 Тикет закрыт и перемещён в архив. Доступ к каналу имеют только сотрудники.")
+        await inter.followup.send("✅ Тикет закрыт. Он перемещён в архив и скрыт от участника.")
 
-        # Проверяем, остались ли открытые тикеты в категории "Тикеты"
-        open_category = disnake.utils.get(inter.guild.categories, name=TICKET_CATEGORY_NAME)
+        # Если в категории "Тикеты" не осталось каналов – удаляем её
+        open_category = disnake.utils.get(guild.categories, name=TICKET_CATEGORY_NAME)
         if open_category:
             open_tickets = [ch for ch in open_category.text_channels if ch.name.startswith("ticket-")]
             if not open_tickets:
-                # Если категория пуста, удаляем её
                 try:
                     await open_category.delete()
                     print(f"[Tickets] Категория {TICKET_CATEGORY_NAME} удалена (пуста).")
                 except Exception as e:
                     print(f"[Tickets] Ошибка удаления категории {TICKET_CATEGORY_NAME}: {e}")
 
-        # Логирование закрытия
+        # Лог закрытия в канал модерации
         log_embed = disnake.Embed(
             title="🔒 Закрыт тикет",
             color=disnake.Color.red(),
             timestamp=disnake.utils.utcnow()
         )
-        log_embed.add_field(name="Канал", value=f"#{self.channel_name} (перемещён в архив)", inline=False)
+        log_embed.add_field(name="Канал", value=f"#{inter.channel.name} (перемещён в архив, скрыт)", inline=False)
         log_embed.add_field(name="Закрыл", value=member.mention, inline=False)
         if MOD_LOG_CHANNEL_ID:
             log_channel = inter.bot.get_channel(MOD_LOG_CHANNEL_ID)
             if log_channel:
                 await log_channel.send(embed=log_embed)
-        await log_event("ticket_close", f"{inter.channel.id}|closed by {member.id}")
+
+        await log_event("ticket_close", f"{inter.channel.id}|closed by {member.id}|creator {self.creator_id}")
 
 
 class CreateTicketView(disnake.ui.View):
@@ -194,8 +215,8 @@ class Tickets(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def setup_tickets(self, inter: disnake.ApplicationCommandInteraction):
         embed = disnake.Embed(
-            title="🎫 Система тикетов",
-            description="Нажмите на кнопку ниже, чтобы создать тикет. Укажите причину обращения, и мы свяжемся с вами.",
+            title="🎫 Создать тикет",
+            description="Создайте тикет и опишите в нём свою проблему",
             color=disnake.Color.blurple()
         )
         view = CreateTicketView()
