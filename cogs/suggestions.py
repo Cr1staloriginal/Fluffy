@@ -1,11 +1,11 @@
 import disnake
 from disnake.ext import commands
-import traceback
-from database import (
-    add_suggestion, get_suggestion, add_vote,
-    get_suggestion_votes_by_type, close_suggestion
-)
+import sqlite3
+import aiosqlite
+import os
 from utils.colors import main_color
+
+DB_PATH = os.getenv("DATABASE_PATH", "data/database.db")
 
 STAFF_ROLE_NAMES = [
     "🦊 Хвостик порядка",
@@ -14,6 +14,63 @@ STAFF_ROLE_NAMES = [
     "🐾 Старшая лапка",
     "🐾 Главная лапка"
 ]
+
+async def init_suggestion_tables():
+    """Создаёт таблицы для предложений, если их нет."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS suggestions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'open'
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS suggestion_votes (
+                suggestion_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                type TEXT NOT NULL,
+                rating INTEGER NOT NULL,
+                PRIMARY KEY (suggestion_id, user_id)
+            )
+        """)
+        await db.commit()
+
+async def add_suggestion(author_id: int, text: str) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("INSERT INTO suggestions (author_id, text) VALUES (?, ?)", (author_id, text))
+        await db.commit()
+        return cursor.lastrowid
+
+async def get_suggestion(suggestion_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT * FROM suggestions WHERE id = ?", (suggestion_id,)) as cur:
+            return await cur.fetchone()
+
+async def add_vote(suggestion_id: int, user_id: int, type_: str, rating: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT OR REPLACE INTO suggestion_votes (suggestion_id, user_id, type, rating)
+            VALUES (?, ?, ?, ?)
+        """, (suggestion_id, user_id, type_, rating))
+        await db.commit()
+
+async def get_suggestion_votes_by_type(suggestion_id: int, type_: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT rating FROM suggestion_votes WHERE suggestion_id = ? AND type = ?", (suggestion_id, type_)) as cur:
+            rows = await cur.fetchall()
+            if not rows:
+                return (None, 0)
+            ratings = [r[0] for r in rows]
+            avg = sum(ratings) / len(ratings)
+            return (avg, len(ratings))
+
+async def close_suggestion(suggestion_id: int, status: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE suggestions SET status = ? WHERE id = ?", (status, suggestion_id))
+        await db.commit()
 
 class SuggestionModal(disnake.ui.Modal):
     def __init__(self):
@@ -31,6 +88,8 @@ class SuggestionModal(disnake.ui.Modal):
 
     async def callback(self, inter: disnake.ModalInteraction):
         try:
+            # Убедимся, что таблицы существуют
+            await init_suggestion_tables()
             text = inter.text_values.get("suggestion_text", "").strip()
             if not text:
                 await inter.response.send_message("❌ Текст не может быть пустым.", ephemeral=True)
@@ -50,9 +109,9 @@ class SuggestionModal(disnake.ui.Modal):
             view = SuggestionView(suggestion_id, inter.author.id)
             await inter.response.send_message(embed=embed, view=view)
         except Exception as e:
-            print("[ERROR] SuggestionModal callback:")
+            import traceback
             traceback.print_exc()
-            await inter.response.send_message("❌ Произошла ошибка при создании предложения. Администрация уже знает.", ephemeral=True)
+            await inter.response.send_message(f"❌ Ошибка: {e}", ephemeral=True)
 
 class RatingModal(disnake.ui.Modal):
     def __init__(self, suggestion_id: int):
@@ -86,9 +145,9 @@ class RatingModal(disnake.ui.Modal):
             await update_suggestion_embed(inter, self.suggestion_id)
             await inter.response.send_message("✅ Ваша оценка учтена!", ephemeral=True)
         except Exception as e:
-            print("[ERROR] RatingModal callback:")
+            import traceback
             traceback.print_exc()
-            await inter.response.send_message("❌ Ошибка при сохранении оценки.", ephemeral=True)
+            await inter.response.send_message(f"❌ Ошибка: {e}", ephemeral=True)
 
 class SuggestionView(disnake.ui.View):
     def __init__(self, suggestion_id: int, author_id: int):
@@ -140,47 +199,43 @@ class ActionSelectView(disnake.ui.View):
         self.stop()
 
 async def update_suggestion_embed(inter, suggestion_id: int, closed: bool = False):
-    try:
-        suggestion = await get_suggestion(suggestion_id)
-        if not suggestion:
-            return
-        staff_avg, staff_count = await get_suggestion_votes_by_type(suggestion_id, "staff")
-        member_avg, member_count = await get_suggestion_votes_by_type(suggestion_id, "member")
-        all_ratings = []
-        if staff_avg:
-            all_ratings.extend([staff_avg] * staff_count)
-        if member_avg:
-            all_ratings.extend([member_avg] * member_count)
-        total_avg = sum(all_ratings) / len(all_ratings) if all_ratings else None
+    suggestion = await get_suggestion(suggestion_id)
+    if not suggestion:
+        return
+    staff_avg, staff_count = await get_suggestion_votes_by_type(suggestion_id, "staff")
+    member_avg, member_count = await get_suggestion_votes_by_type(suggestion_id, "member")
+    all_ratings = []
+    if staff_avg:
+        all_ratings.extend([staff_avg] * staff_count)
+    if member_avg:
+        all_ratings.extend([member_avg] * member_count)
+    total_avg = sum(all_ratings) / len(all_ratings) if all_ratings else None
 
-        staff_text = f"{staff_avg:.2f} 🟢 ({staff_count} голосов)" if staff_avg else "⏳ нет голосов"
-        member_text = f"{member_avg:.2f} 🟢 ({member_count} голосов)" if member_avg else "⏳ нет голосов"
-        total_text = f"{total_avg:.2f} 🟢" if total_avg else "⏳ нет голосов"
+    staff_text = f"{staff_avg:.2f} 🟢 ({staff_count} голосов)" if staff_avg else "⏳ нет голосов"
+    member_text = f"{member_avg:.2f} 🟢 ({member_count} голосов)" if member_avg else "⏳ нет голосов"
+    total_text = f"{total_avg:.2f} 🟢" if total_avg else "⏳ нет голосов"
 
-        status_map = {
-            "open": "🟡 На рассмотрении",
-            "accepted": "✅ Принято",
-            "rejected": "❌ Отклонено",
-            "in_work": "🛠️ В работе"
-        }
-        status = status_map.get(suggestion[4], "🟡 На рассмотрении")
-        embed = disnake.Embed(
-            title=f"📌 Предложение №{suggestion_id}",
-            description=suggestion[2],
-            color=main_color() if suggestion[4] == "open" else disnake.Color.dark_grey(),
-            timestamp=disnake.utils.utcnow()
-        )
-        embed.set_author(name=f"Автор: <@{suggestion[1]}>")
-        embed.add_field(name="👥 Оценка персонала", value=staff_text, inline=True)
-        embed.add_field(name="👤 Оценка участников", value=member_text, inline=True)
-        embed.add_field(name="🔢 Общий рейтинг", value=total_text, inline=True)
-        embed.add_field(name="📋 Статус", value=status, inline=False)
-        if closed:
-            embed.set_footer(text="Предложение закрыто")
-        await inter.edit_original_response(embed=embed, view=None if closed else SuggestionView(suggestion_id, suggestion[1]))
-    except Exception as e:
-        print("[ERROR] update_suggestion_embed:")
-        traceback.print_exc()
+    status_map = {
+        "open": "🟡 На рассмотрении",
+        "accepted": "✅ Принято",
+        "rejected": "❌ Отклонено",
+        "in_work": "🛠️ В работе"
+    }
+    status = status_map.get(suggestion[4], "🟡 На рассмотрении")
+    embed = disnake.Embed(
+        title=f"📌 Предложение №{suggestion_id}",
+        description=suggestion[2],
+        color=main_color() if suggestion[4] == "open" else disnake.Color.dark_grey(),
+        timestamp=disnake.utils.utcnow()
+    )
+    embed.set_author(name=f"Автор: <@{suggestion[1]}>")
+    embed.add_field(name="👥 Оценка персонала", value=staff_text, inline=True)
+    embed.add_field(name="👤 Оценка участников", value=member_text, inline=True)
+    embed.add_field(name="🔢 Общий рейтинг", value=total_text, inline=True)
+    embed.add_field(name="📋 Статус", value=status, inline=False)
+    if closed:
+        embed.set_footer(text="Предложение закрыто")
+    await inter.edit_original_response(embed=embed, view=None if closed else SuggestionView(suggestion_id, suggestion[1]))
 
 class Suggestions(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
