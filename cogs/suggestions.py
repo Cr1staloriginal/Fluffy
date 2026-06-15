@@ -29,14 +29,13 @@ async def init_tables():
             CREATE TABLE IF NOT EXISTS suggestion_votes (
                 suggestion_id INTEGER NOT NULL,
                 user_id INTEGER NOT NULL,
-                vote TEXT NOT NULL,  -- 'up' или 'down'
+                vote TEXT NOT NULL,
                 PRIMARY KEY (suggestion_id, user_id)
             )
         """)
         await db.commit()
 
 async def get_votes(suggestion_id: int):
-    """Возвращает (up, down) для данного предложения."""
     async with aiosqlite.connect(str(DB_PATH)) as db:
         async with db.execute("SELECT vote, COUNT(*) FROM suggestion_votes WHERE suggestion_id = ? GROUP BY vote", (suggestion_id,)) as cur:
             rows = await cur.fetchall()
@@ -50,13 +49,16 @@ async def get_votes(suggestion_id: int):
             return up, down
 
 async def add_or_update_vote(suggestion_id: int, user_id: int, vote: str):
-    """Добавляет или обновляет голос пользователя."""
     async with aiosqlite.connect(str(DB_PATH)) as db:
         await db.execute("""
             INSERT OR REPLACE INTO suggestion_votes (suggestion_id, user_id, vote)
             VALUES (?, ?, ?)
         """, (suggestion_id, user_id, vote))
         await db.commit()
+
+async def get_author_name(author_id: int, bot):
+    user = await bot.get_user(author_id)
+    return user.display_name if user else f"User {author_id}"
 
 class SuggestionModal(disnake.ui.Modal):
     def __init__(self):
@@ -85,7 +87,7 @@ class SuggestionModal(disnake.ui.Modal):
             suggestion_id = cursor.lastrowid
 
         embed = disnake.Embed(
-            title=f"✨ Идея №{suggestion_id}",
+            title=f"⭐ Идея №{suggestion_id}",
             description=text,
             color=main_color(),
             timestamp=disnake.utils.utcnow()
@@ -104,7 +106,6 @@ class SuggestionView(disnake.ui.View):
         self.author_id = author_id
 
     async def update_message(self, inter: disnake.MessageInteraction):
-        """Обновляет embed с актуальными голосами."""
         up, down = await get_votes(self.suggestion_id)
         async with aiosqlite.connect(str(DB_PATH)) as db:
             async with db.execute("SELECT text, author_id FROM suggestions WHERE id = ?", (self.suggestion_id,)) as cur:
@@ -112,7 +113,7 @@ class SuggestionView(disnake.ui.View):
                 text = row[0] if row else ""
                 author_id = row[1] if row else None
         embed = disnake.Embed(
-            title=f"✨ Идея №{self.suggestion_id}",
+            title=f"⭐ Идея №{self.suggestion_id}",
             description=text,
             color=main_color(),
             timestamp=disnake.utils.utcnow()
@@ -146,24 +147,25 @@ class SuggestionView(disnake.ui.View):
             return
         await inter.response.send_message(
             "Выберите действие:",
-            view=ActionSelectView(self.suggestion_id),
+            view=ActionSelectView(self.suggestion_id, inter),
             ephemeral=True
         )
 
 class ActionSelectView(disnake.ui.View):
-    def __init__(self, suggestion_id: int):
+    def __init__(self, suggestion_id: int, original_inter: disnake.MessageInteraction):
         super().__init__(timeout=60)
         self.suggestion_id = suggestion_id
+        self.original_inter = original_inter
 
     @disnake.ui.button(label="✅ Принять", style=disnake.ButtonStyle.success)
     async def accept_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await self.resolve_suggestion(inter, "accepted", "✅ Принято!")
+        await self.resolve_suggestion(inter, "accepted", "✅ Принято!", disnake.Color.green())
 
     @disnake.ui.button(label="❌ Отклонить", style=disnake.ButtonStyle.danger)
     async def reject_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await self.resolve_suggestion(inter, "rejected", "❌ Отклонено")
+        await self.resolve_suggestion(inter, "rejected", "❌ Отклонено", disnake.Color.red())
 
-    async def resolve_suggestion(self, inter: disnake.MessageInteraction, status: str, status_text: str):
+    async def resolve_suggestion(self, inter: disnake.MessageInteraction, status: str, status_text: str, color):
         await inter.response.defer()
         async with aiosqlite.connect(str(DB_PATH)) as db:
             async with db.execute("SELECT author_id, text FROM suggestions WHERE id = ?", (self.suggestion_id,)) as cur:
@@ -175,19 +177,22 @@ class ActionSelectView(disnake.ui.View):
             await db.execute("UPDATE suggestions SET status = ? WHERE id = ?", (status, self.suggestion_id))
             await db.commit()
         up, down = await get_votes(self.suggestion_id)
-        # Удаляем исходное сообщение
+        # Получаем имя автора
+        user = inter.bot.get_user(author_id)
+        author_name = user.display_name if user else f"User {author_id}"
+        # Удаляем исходное сообщение (то, где были кнопки)
         try:
-            await inter.message.delete()
+            await self.original_inter.message.delete()
         except:
             pass
         # Создаём новое сообщение с итогом
         embed = disnake.Embed(
-            title=f"✨ Идея №{self.suggestion_id} — {status_text}",
+            title=f"⭐ Идея №{self.suggestion_id} — {status_text}",
             description=text,
-            color=disnake.Color.green() if status == "accepted" else disnake.Color.red(),
+            color=color,
             timestamp=disnake.utils.utcnow()
         )
-        embed.set_author(name=f"Автор: <@{author_id}>")
+        embed.add_field(name="Автор", value=f"{author_name} (<@{author_id}>)", inline=False)
         embed.add_field(name="👍 Поддержало", value=str(up), inline=True)
         embed.add_field(name="👎 Против", value=str(down), inline=True)
         embed.set_footer(text=f"Решение принял: {inter.author.display_name}")
