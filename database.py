@@ -27,7 +27,6 @@ async def init_db() -> None:
                 last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Миграция для добавления недостающих колонок
         async with db.execute("PRAGMA table_info(users)") as cur:
             columns = [row[1] for row in await cur.fetchall()]
             if 'display_name' not in columns:
@@ -41,14 +40,13 @@ async def init_db() -> None:
             if 'voice_join_time' not in columns:
                 await db.execute("ALTER TABLE users ADD COLUMN voice_join_time TIMESTAMP")
 
-        # Таблица phrases
+        # Остальные таблицы
         await db.execute("""
             CREATE TABLE IF NOT EXISTS phrases (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 text TEXT UNIQUE
             )
         """)
-        # Таблица logs
         await db.execute("""
             CREATE TABLE IF NOT EXISTS logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,7 +55,6 @@ async def init_db() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Таблица tickets
         await db.execute("""
             CREATE TABLE IF NOT EXISTS tickets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +64,6 @@ async def init_db() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Таблица warns
         await db.execute("""
             CREATE TABLE IF NOT EXISTS warns (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,7 +76,6 @@ async def init_db() -> None:
                 action_taken TEXT DEFAULT 'pending'
             )
         """)
-        # Таблица birthdays
         await db.execute("""
             CREATE TABLE IF NOT EXISTS birthdays (
                 user_id INTEGER PRIMARY KEY,
@@ -88,17 +83,23 @@ async def init_db() -> None:
                 set_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Таблица suggestions
+        # Таблица suggestions с полем message_id
         await db.execute("""
             CREATE TABLE IF NOT EXISTS suggestions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 author_id INTEGER NOT NULL,
                 text TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                status TEXT DEFAULT 'open'
+                status TEXT DEFAULT 'open',
+                message_id INTEGER
             )
         """)
-        # Таблица suggestion_votes
+        # Добавление колонки message_id для старых таблиц (миграция)
+        async with db.execute("PRAGMA table_info(suggestions)") as cur:
+            cols = [row[1] for row in await cur.fetchall()]
+            if 'message_id' not in cols:
+                await db.execute("ALTER TABLE suggestions ADD COLUMN message_id INTEGER")
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS suggestion_votes (
                 suggestion_id INTEGER NOT NULL,
@@ -259,7 +260,7 @@ async def get_user_stats(user_id: int):
             return await cur.fetchone()
 
 
-# ========== Предложения (suggestions) ==========
+# ========== Предложения ==========
 async def add_suggestion(author_id: int, text: str) -> int:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         cursor = await db.execute("INSERT INTO suggestions (author_id, text) VALUES (?, ?)", (author_id, text))
@@ -270,6 +271,11 @@ async def get_suggestion(suggestion_id: int):
     async with aiosqlite.connect(str(DB_PATH)) as db:
         async with db.execute("SELECT * FROM suggestions WHERE id = ?", (suggestion_id,)) as cur:
             return await cur.fetchone()
+
+async def update_suggestion_message_id(suggestion_id: int, message_id: int):
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("UPDATE suggestions SET message_id = ? WHERE id = ?", (message_id, suggestion_id))
+        await db.commit()
 
 async def add_vote(suggestion_id: int, user_id: int, type_: str, rating: int):
     async with aiosqlite.connect(str(DB_PATH)) as db:
