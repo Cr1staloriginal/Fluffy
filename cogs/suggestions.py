@@ -1,11 +1,7 @@
 import disnake
 from disnake.ext import commands
-import aiosqlite
-import os
-import traceback
+from database import add_suggestion, get_suggestion, add_vote, get_suggestion_votes_by_type, close_suggestion
 from utils.colors import main_color
-
-DB_PATH = os.getenv("DATABASE_PATH", "data/database.db")
 
 STAFF_ROLE_NAMES = [
     "🦊 Хвостик порядка",
@@ -15,66 +11,6 @@ STAFF_ROLE_NAMES = [
     "🐾 Главная лапка"
 ]
 
-# ========== ИНИЦИАЛИЗАЦИЯ ТАБЛИЦ ==========
-async def init_db():
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS suggestions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                author_id INTEGER NOT NULL,
-                text TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                status TEXT DEFAULT 'open'
-            )
-        """)
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS suggestion_votes (
-                suggestion_id INTEGER NOT NULL,
-                user_id INTEGER NOT NULL,
-                type TEXT NOT NULL,
-                rating INTEGER NOT NULL,
-                PRIMARY KEY (suggestion_id, user_id)
-            )
-        """)
-        await db.commit()
-    print("[Suggestions] Таблицы инициализированы")
-
-# ========== ФУНКЦИИ БД ==========
-async def add_suggestion(author_id: int, text: str) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute("INSERT INTO suggestions (author_id, text) VALUES (?, ?)", (author_id, text))
-        await db.commit()
-        return cursor.lastrowid
-
-async def get_suggestion(suggestion_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT * FROM suggestions WHERE id = ?", (suggestion_id,)) as cur:
-            return await cur.fetchone()
-
-async def add_vote(suggestion_id: int, user_id: int, type_: str, rating: int):
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("""
-            INSERT OR REPLACE INTO suggestion_votes (suggestion_id, user_id, type, rating)
-            VALUES (?, ?, ?, ?)
-        """, (suggestion_id, user_id, type_, rating))
-        await db.commit()
-
-async def get_suggestion_votes_by_type(suggestion_id: int, type_: str):
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT rating FROM suggestion_votes WHERE suggestion_id = ? AND type = ?", (suggestion_id, type_)) as cur:
-            rows = await cur.fetchall()
-            if not rows:
-                return (None, 0)
-            ratings = [r[0] for r in rows]
-            avg = sum(ratings) / len(ratings)
-            return (avg, len(ratings))
-
-async def close_suggestion(suggestion_id: int, status: str):
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE suggestions SET status = ? WHERE id = ?", (status, suggestion_id))
-        await db.commit()
-
-# ========== МОДАЛЬНЫЕ ОКНА И VIEWS ==========
 class SuggestionModal(disnake.ui.Modal):
     def __init__(self):
         components = [
@@ -110,8 +46,9 @@ class SuggestionModal(disnake.ui.Modal):
             view = SuggestionView(suggestion_id, inter.author.id)
             await inter.response.send_message(embed=embed, view=view)
         except Exception as e:
+            import traceback
             traceback.print_exc()
-            await inter.response.send_message(f"❌ Ошибка при создании: {e}", ephemeral=True)
+            await inter.response.send_message(f"❌ Ошибка: {e}", ephemeral=True)
 
 class RatingModal(disnake.ui.Modal):
     def __init__(self, suggestion_id: int):
@@ -145,8 +82,9 @@ class RatingModal(disnake.ui.Modal):
             await update_suggestion_embed(inter, self.suggestion_id)
             await inter.response.send_message("✅ Ваша оценка учтена!", ephemeral=True)
         except Exception as e:
+            import traceback
             traceback.print_exc()
-            await inter.response.send_message(f"❌ Ошибка при оценке: {e}", ephemeral=True)
+            await inter.response.send_message(f"❌ Ошибка: {e}", ephemeral=True)
 
 class SuggestionView(disnake.ui.View):
     def __init__(self, suggestion_id: int, author_id: int):
@@ -239,10 +177,6 @@ async def update_suggestion_embed(inter, suggestion_id: int, closed: bool = Fals
 class Suggestions(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
-
-    async def cog_load(self):
-        """Выполняется при загрузке кога — создаём таблицы"""
-        await init_db()
 
     @commands.slash_command(name="предложение", description="📝 Создать новое предложение")
     async def suggestion(self, inter: disnake.ApplicationCommandInteraction):
