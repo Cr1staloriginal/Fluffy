@@ -1,5 +1,3 @@
-# cogs/user_commands.py
-
 import disnake
 from disnake.ext import commands
 import random
@@ -231,7 +229,7 @@ class UserCommands(commands.Cog):
 
     # ====================== ГРУППА: РАЗВЛЕЧЕНИЯ ======================
     @commands.slash_command(name="развлечения", description="🎉 Развлекательные команды")
-    async fun(self, inter: disnake.ApplicationCommandInteraction):
+    async def fun(self, inter: disnake.ApplicationCommandInteraction):
         pass
 
     @fun.sub_command(name="мило", description="🌸 Получить милую фразу с ником участника")
@@ -333,7 +331,7 @@ class UserCommands(commands.Cog):
 
     # ====================== ГРУППА: ИГРЫ ======================
     @commands.slash_command(name="игры", description="🎮 Игры с ботом")
-    async games(self, inter: disnake.ApplicationCommandInteraction):
+    async def games(self, inter: disnake.ApplicationCommandInteraction):
         pass
 
     @games.sub_command(name="рандом", description="🎲 Случайное число от A до B")
@@ -374,6 +372,7 @@ class UserCommands(commands.Cog):
     async def roll_dice(self, inter: disnake.ApplicationCommandInteraction):
         result = random.randint(1, 6)
         await inter.response.send_message(f"{inter.author.mention} бросает кость... Выпало **{result}**! 🎲")
+
 
 def setup(bot: commands.InteractionBot):
     bot.add_cog(UserCommands(bot))
