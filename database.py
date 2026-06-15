@@ -27,6 +27,7 @@ async def init_db() -> None:
                 last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Добавляем недостающие колонки (миграция)
         async with db.execute("PRAGMA table_info(users)") as cur:
             columns = [row[1] for row in await cur.fetchall()]
             if 'display_name' not in columns:
@@ -40,14 +41,14 @@ async def init_db() -> None:
             if 'voice_join_time' not in columns:
                 await db.execute("ALTER TABLE users ADD COLUMN voice_join_time TIMESTAMP")
 
-        # Фразы
+        # Таблица phrases
         await db.execute("""
             CREATE TABLE IF NOT EXISTS phrases (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 text TEXT UNIQUE
             )
         """)
-        # Логи
+        # Таблица logs
         await db.execute("""
             CREATE TABLE IF NOT EXISTS logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,7 +57,7 @@ async def init_db() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Тикеты
+        # Таблица tickets
         await db.execute("""
             CREATE TABLE IF NOT EXISTS tickets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,7 +67,7 @@ async def init_db() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Варны
+        # Таблица warns
         await db.execute("""
             CREATE TABLE IF NOT EXISTS warns (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,7 +80,7 @@ async def init_db() -> None:
                 action_taken TEXT DEFAULT 'pending'
             )
         """)
-        # Дни рождения
+        # Таблица birthdays
         await db.execute("""
             CREATE TABLE IF NOT EXISTS birthdays (
                 user_id INTEGER PRIMARY KEY,
@@ -87,19 +88,24 @@ async def init_db() -> None:
                 set_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Предложения
+        # Таблица suggestions
         await db.execute("""
             CREATE TABLE IF NOT EXISTS suggestions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 author_id INTEGER NOT NULL,
                 text TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                status TEXT DEFAULT 'open',
-                channel_id INTEGER,
-                message_id INTEGER
+                status TEXT DEFAULT 'open'
             )
         """)
-        # Голоса за предложения
+        # Добавляем колонки channel_id и message_id, если их нет
+        async with db.execute("PRAGMA table_info(suggestions)") as cur:
+            cols = [row[1] for row in await cur.fetchall()]
+            if 'channel_id' not in cols:
+                await db.execute("ALTER TABLE suggestions ADD COLUMN channel_id INTEGER")
+            if 'message_id' not in cols:
+                await db.execute("ALTER TABLE suggestions ADD COLUMN message_id INTEGER")
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS suggestion_votes (
                 suggestion_id INTEGER NOT NULL,
@@ -111,7 +117,7 @@ async def init_db() -> None:
         """)
         await db.commit()
 
-    # Автоматическая загрузка фраз из templates.txt
+    # Автоматически загружаем фразы из templates.txt
     await load_phrases_from_file()
 
 
@@ -120,12 +126,12 @@ async def load_phrases_from_file():
         async with db.execute("SELECT COUNT(*) FROM phrases") as cur:
             count = (await cur.fetchone())[0]
         if count > 0:
-            print("[DB] Фразы уже загружены, пропускаем.")
+            print("[DB] Фразы уже есть, загрузка не требуется.")
             return
 
     templates_path = Path(__file__).parent / "templates.txt"
     if not templates_path.exists():
-        print("[DB] templates.txt не найден, загрузка фраз отменена.")
+        print("[DB] templates.txt не найден, пропускаем загрузку.")
         return
 
     with open(templates_path, "r", encoding="utf-8") as f:
@@ -146,7 +152,7 @@ async def get_random_phrase() -> str:
             return row[0] if row else "🐾 {nick} приветствует тебя!"
 
 
-# ========== Функции для пользователей ==========
+# ========== Пользователи и статистика ==========
 async def update_user_display_name(user_id: int, display_name: str) -> None:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         await db.execute(
