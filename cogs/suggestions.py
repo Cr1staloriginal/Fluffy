@@ -2,6 +2,7 @@ import disnake
 from disnake.ext import commands
 from database import add_suggestion, get_suggestion, add_vote, get_suggestion_votes_by_type, close_suggestion, update_suggestion_message_id
 from utils.colors import main_color
+import traceback
 
 STAFF_ROLE_NAMES = [
     "🦊 Хвостик порядка",
@@ -46,8 +47,8 @@ class SuggestionModal(disnake.ui.Modal):
             view = SuggestionView(suggestion_id, inter.author.id)
             msg = await inter.response.send_message(embed=embed, view=view)
             await update_suggestion_message_id(suggestion_id, msg.id)
+            print(f"[Suggestions] Создано предложение #{suggestion_id}, message_id={msg.id}")
         except Exception as e:
-            import traceback
             traceback.print_exc()
             await inter.response.send_message(f"❌ Ошибка: {e}", ephemeral=True)
 
@@ -80,10 +81,9 @@ class RatingModal(disnake.ui.Modal):
             is_staff = any(role.name in STAFF_ROLE_NAMES for role in member.roles) or member.guild_permissions.administrator
             vote_type = "staff" if is_staff else "member"
             await add_vote(self.suggestion_id, inter.author.id, vote_type, rating)
-            await update_suggestion_embed(inter, self.suggestion_id)
+            await update_suggestion_embed(self.suggestion_id, inter)
             await inter.response.send_message("✅ Ваша оценка учтена!", ephemeral=True)
         except Exception as e:
-            import traceback
             traceback.print_exc()
             await inter.response.send_message(f"❌ Ошибка: {e}", ephemeral=True)
 
@@ -106,45 +106,54 @@ class SuggestionView(disnake.ui.View):
             return
         await inter.response.send_message(
             "Выберите действие:",
-            view=ActionSelectView(self.suggestion_id),
+            view=ActionSelectView(self.suggestion_id, inter),  # передаём interaction для последующего обновления
             ephemeral=True
         )
 
 class ActionSelectView(disnake.ui.View):
-    def __init__(self, suggestion_id: int):
+    def __init__(self, suggestion_id: int, original_inter: disnake.MessageInteraction):
         super().__init__(timeout=60)
         self.suggestion_id = suggestion_id
+        self.original_inter = original_inter
 
     @disnake.ui.button(label="✅ Принять", style=disnake.ButtonStyle.success)
     async def accept_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         await close_suggestion(self.suggestion_id, "accepted")
         await inter.response.send_message("✅ Предложение принято! Статус обновлён.", ephemeral=True)
-        await update_suggestion_embed(inter, self.suggestion_id, closed=True)
+        await update_suggestion_embed(self.suggestion_id, self.original_inter, closed=True)
         self.stop()
 
     @disnake.ui.button(label="❌ Отклонить", style=disnake.ButtonStyle.danger)
     async def reject_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         await close_suggestion(self.suggestion_id, "rejected")
         await inter.response.send_message("❌ Предложение отклонено.", ephemeral=True)
-        await update_suggestion_embed(inter, self.suggestion_id, closed=True)
+        await update_suggestion_embed(self.suggestion_id, self.original_inter, closed=True)
         self.stop()
 
     @disnake.ui.button(label="⏳ В работу", style=disnake.ButtonStyle.primary)
     async def work_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         await close_suggestion(self.suggestion_id, "in_work")
         await inter.response.send_message("🛠️ Предложение принято в работу!", ephemeral=True)
-        await update_suggestion_embed(inter, self.suggestion_id, closed=True)
+        await update_suggestion_embed(self.suggestion_id, self.original_inter, closed=True)
         self.stop()
 
-async def update_suggestion_embed(inter, suggestion_id: int, closed: bool = False):
+async def update_suggestion_embed(suggestion_id: int, inter: disnake.MessageInteraction, closed: bool = False):
+    """Обновляет embed исходного сообщения (видно всем)."""
     suggestion = await get_suggestion(suggestion_id)
-    if not suggestion or len(suggestion) < 6 or not suggestion[5]:
+    if not suggestion:
+        print(f"update_suggestion_embed: suggestion {suggestion_id} not found")
         return
+    if len(suggestion) < 6 or not suggestion[5]:
+        print(f"update_suggestion_embed: message_id missing for suggestion {suggestion_id}")
+        return
+    message_id = suggestion[5]
     channel = inter.channel
     try:
-        msg = await channel.fetch_message(suggestion[5])
-    except:
+        msg = await channel.fetch_message(message_id)
+    except Exception as e:
+        print(f"update_suggestion_embed: fetch_message error: {e}")
         return
+
     staff_avg, staff_count = await get_suggestion_votes_by_type(suggestion_id, "staff")
     member_avg, member_count = await get_suggestion_votes_by_type(suggestion_id, "member")
     all_ratings = []
@@ -179,6 +188,7 @@ async def update_suggestion_embed(inter, suggestion_id: int, closed: bool = Fals
     if closed:
         embed.set_footer(text="Предложение закрыто")
     await msg.edit(embed=embed, view=None if closed else SuggestionView(suggestion_id, suggestion[1]))
+    print(f"[Suggestions] Обновлён embed предложения #{suggestion_id}")
 
 class Suggestions(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
