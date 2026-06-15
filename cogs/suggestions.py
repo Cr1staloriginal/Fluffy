@@ -45,9 +45,12 @@ class SuggestionModal(disnake.ui.Modal):
             embed.add_field(name="🔢 Общий рейтинг", value="⏳ нет голосов", inline=True)
             embed.set_footer(text="Нажмите на кнопку ниже, чтобы оценить предложение")
             view = SuggestionView(suggestion_id, inter.author.id)
-            msg = await inter.response.send_message(embed=embed, view=view)
+            # Отправляем embed в канал (не эфемерно)
+            msg = await inter.channel.send(embed=embed, view=view)
             # Сохраняем channel_id и message_id
             await update_suggestion_message(suggestion_id, inter.channel.id, msg.id)
+            # Подтверждаем пользователю (эфемерно) через followup, так как ответ уже отправлен модалкой
+            await inter.followup.send(f"✅ Предложение #{suggestion_id} создано!", ephemeral=True)
             print(f"[Suggestions] Создано предложение #{suggestion_id} в канале {inter.channel.id}, message_id={msg.id}")
         except Exception as e:
             traceback.print_exc()
@@ -143,7 +146,7 @@ async def update_suggestion_embed(suggestion_id: int, bot, closed: bool = False)
     if not suggestion:
         print(f"update_suggestion_embed: suggestion {suggestion_id} not found")
         return
-    if len(suggestion) < 7 or not suggestion[6] or not suggestion[5]:
+    if len(suggestion) < 7 or not suggestion[5] or not suggestion[6]:
         print(f"update_suggestion_embed: missing channel_id or message_id for suggestion {suggestion_id}")
         return
     channel_id = suggestion[5]
