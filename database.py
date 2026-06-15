@@ -83,18 +83,17 @@ async def init_db() -> None:
                 set_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Таблица suggestions с channel_id и message_id
+        # Таблица suggestions (без channel_id и message_id – добавим ниже)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS suggestions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 author_id INTEGER NOT NULL,
                 text TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                status TEXT DEFAULT 'open',
-                channel_id INTEGER,
-                message_id INTEGER
+                status TEXT DEFAULT 'open'
             )
         """)
+        # Добавляем колонки channel_id и message_id, если их нет
         async with db.execute("PRAGMA table_info(suggestions)") as cur:
             cols = [row[1] for row in await cur.fetchall()]
             if 'channel_id' not in cols:
