@@ -43,7 +43,6 @@ class AnnounceModal(disnake.ui.Modal):
         color_name = inter.text_values.get("announce_color", "").lower().strip()
         image_url = inter.text_values.get("announce_image", "").strip()
 
-        # Определяем цвет
         color_map = {
             "синий": disnake.Color.blue(),
             "зелёный": disnake.Color.green(),
@@ -74,7 +73,6 @@ class Announce(commands.Cog):
     @commands.slash_command(name="объявление", description="📢 Создать объявление через модальное окно (только для администраторов)")
     @commands.has_permissions(administrator=True)
     async def announce(self, inter: disnake.ApplicationCommandInteraction):
-        """Открывает модальное окно для создания объявления."""
         await inter.response.send_modal(AnnounceModal())
 
 def setup(bot: commands.InteractionBot):
