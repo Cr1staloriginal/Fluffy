@@ -20,13 +20,26 @@ async def init_db() -> None:
                 display_name TEXT DEFAULT '',
                 verified INTEGER DEFAULT 0,
                 points INTEGER DEFAULT 0,
+                messages_sent INTEGER DEFAULT 0,
+                voice_minutes INTEGER DEFAULT 0,
+                cookies_received INTEGER DEFAULT 0,
+                voice_join_time TIMESTAMP,
                 last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Добавляем недостающие колонки (миграция)
         async with db.execute("PRAGMA table_info(users)") as cur:
             columns = [row[1] for row in await cur.fetchall()]
             if 'display_name' not in columns:
                 await db.execute("ALTER TABLE users ADD COLUMN display_name TEXT DEFAULT ''")
+            if 'messages_sent' not in columns:
+                await db.execute("ALTER TABLE users ADD COLUMN messages_sent INTEGER DEFAULT 0")
+            if 'voice_minutes' not in columns:
+                await db.execute("ALTER TABLE users ADD COLUMN voice_minutes INTEGER DEFAULT 0")
+            if 'cookies_received' not in columns:
+                await db.execute("ALTER TABLE users ADD COLUMN cookies_received INTEGER DEFAULT 0")
+            if 'voice_join_time' not in columns:
+                await db.execute("ALTER TABLE users ADD COLUMN voice_join_time TIMESTAMP")
 
         # Таблица phrases
         await db.execute("""
@@ -75,6 +88,27 @@ async def init_db() -> None:
                 set_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Таблица suggestions
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS suggestions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'open'
+            )
+        """)
+        # Таблица suggestion_votes
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS suggestion_votes (
+                suggestion_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                type TEXT NOT NULL,
+                rating INTEGER NOT NULL,
+                PRIMARY KEY (suggestion_id, user_id)
+            )
+        """)
+
         await db.commit()
 
     await load_phrases_from_file()
@@ -99,7 +133,7 @@ async def load_phrases_from_file():
     print(f"[DB] Загружено {len(lines)} фраз")
 
 
-# ========== Работа с пользователями ==========
+# ========== Пользователи и валюта ==========
 async def update_user_display_name(user_id: int, display_name: str) -> None:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         await db.execute(
@@ -108,7 +142,24 @@ async def update_user_display_name(user_id: int, display_name: str) -> None:
         )
         await db.commit()
 
+async def add_coins(user_id: int, amount: int) -> None:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("UPDATE users SET points = points + ? WHERE user_id = ?", (amount, user_id))
+        await db.commit()
 
+async def get_coins(user_id: int) -> int:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute("SELECT points FROM users WHERE user_id = ?", (user_id,)) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else 0
+
+async def set_coins(user_id: int, amount: int) -> None:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("UPDATE users SET points = ? WHERE user_id = ?", (amount, user_id))
+        await db.commit()
+
+
+# ========== Фразы ==========
 async def get_random_phrase() -> str:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         async with db.execute("SELECT text FROM phrases ORDER BY RANDOM() LIMIT 1") as cur:
@@ -116,6 +167,7 @@ async def get_random_phrase() -> str:
             return row[0] if row else "🐾 {nick} приветствует тебя!"
 
 
+# ========== Логирование ==========
 async def log_event(event_type: str, payload: str) -> None:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         await db.execute(
@@ -125,7 +177,7 @@ async def log_event(event_type: str, payload: str) -> None:
         await db.commit()
 
 
-# ========== Система предупреждений ==========
+# ========== Варны ==========
 async def add_warn(user_id: int, moderator_id: int, reason: str, rule_name: str = None, message_link: str = None) -> int:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         cursor = await db.execute("""
@@ -135,12 +187,10 @@ async def add_warn(user_id: int, moderator_id: int, reason: str, rule_name: str 
         await db.commit()
         return cursor.lastrowid
 
-
 async def get_user_warns(user_id: int) -> list:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         async with db.execute("SELECT * FROM warns WHERE user_id = ? ORDER BY date DESC", (user_id,)) as cur:
             return await cur.fetchall()
-
 
 async def remove_warn(warn_id: int) -> bool:
     async with aiosqlite.connect(str(DB_PATH)) as db:
@@ -149,9 +199,8 @@ async def remove_warn(warn_id: int) -> bool:
         return cursor.rowcount > 0
 
 
-# ========== Система дней рождений ==========
+# ========== Дни рождения ==========
 async def set_birthday(user_id: int, birthday: str) -> None:
-    """Сохраняет день рождения (формат DD-MM)."""
     async with aiosqlite.connect(str(DB_PATH)) as db:
         await db.execute(
             "INSERT OR REPLACE INTO birthdays (user_id, birthday) VALUES (?, ?)",
@@ -159,26 +208,89 @@ async def set_birthday(user_id: int, birthday: str) -> None:
         )
         await db.commit()
 
-
 async def get_birthday(user_id: int) -> Optional[str]:
-    """Возвращает день рождения (DD-MM) или None."""
     async with aiosqlite.connect(str(DB_PATH)) as db:
         async with db.execute("SELECT birthday FROM birthdays WHERE user_id = ?", (user_id,)) as cur:
             row = await cur.fetchone()
             return row[0] if row else None
 
-
 async def delete_birthday(user_id: int) -> bool:
-    """Удаляет день рождения."""
     async with aiosqlite.connect(str(DB_PATH)) as db:
         cursor = await db.execute("DELETE FROM birthdays WHERE user_id = ?", (user_id,))
         await db.commit()
         return cursor.rowcount > 0
 
-
 async def get_today_birthdays(today: str) -> list[int]:
-    """Возвращает список user_id, у кого день рождения совпадает с today (DD-MM)."""
     async with aiosqlite.connect(str(DB_PATH)) as db:
         async with db.execute("SELECT user_id FROM birthdays WHERE birthday = ?", (today,)) as cur:
             rows = await cur.fetchall()
             return [row[0] for row in rows]
+
+
+# ========== Статистика активности ==========
+async def increment_messages(user_id: int, delta: int = 1) -> None:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("UPDATE users SET messages_sent = messages_sent + ? WHERE user_id = ?", (delta, user_id))
+        await db.commit()
+
+async def add_voice_minutes(user_id: int, minutes: int) -> None:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("UPDATE users SET voice_minutes = voice_minutes + ? WHERE user_id = ?", (minutes, user_id))
+        await db.commit()
+
+async def add_cookies(user_id: int, delta: int = 1) -> None:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("UPDATE users SET cookies_received = cookies_received + ? WHERE user_id = ?", (delta, user_id))
+        await db.commit()
+
+async def set_voice_join_time(user_id: int, timestamp: Optional[float]) -> None:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("UPDATE users SET voice_join_time = ? WHERE user_id = ?", (timestamp, user_id))
+        await db.commit()
+
+async def get_voice_join_time(user_id: int) -> Optional[float]:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute("SELECT voice_join_time FROM users WHERE user_id = ?", (user_id,)) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else None
+
+async def get_user_stats(user_id: int):
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute("SELECT messages_sent, voice_minutes, cookies_received FROM users WHERE user_id = ?", (user_id,)) as cur:
+            return await cur.fetchone()
+
+
+# ========== Предложения (suggestions) ==========
+async def add_suggestion(author_id: int, text: str) -> int:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        cursor = await db.execute("INSERT INTO suggestions (author_id, text) VALUES (?, ?)", (author_id, text))
+        await db.commit()
+        return cursor.lastrowid
+
+async def get_suggestion(suggestion_id: int):
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute("SELECT * FROM suggestions WHERE id = ?", (suggestion_id,)) as cur:
+            return await cur.fetchone()
+
+async def add_vote(suggestion_id: int, user_id: int, type_: str, rating: int):
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("""
+            INSERT OR REPLACE INTO suggestion_votes (suggestion_id, user_id, type, rating)
+            VALUES (?, ?, ?, ?)
+        """, (suggestion_id, user_id, type_, rating))
+        await db.commit()
+
+async def get_suggestion_votes_by_type(suggestion_id: int, type_: str):
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute("SELECT rating FROM suggestion_votes WHERE suggestion_id = ? AND type = ?", (suggestion_id, type_)) as cur:
+            rows = await cur.fetchall()
+            if not rows:
+                return (None, 0)
+            ratings = [r[0] for r in rows]
+            avg = sum(ratings) / len(ratings)
+            return (avg, len(ratings))
+
+async def close_suggestion(suggestion_id: int, status: str):
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("UPDATE suggestions SET status = ? WHERE id = ?", (status, suggestion_id))
+        await db.commit()
