@@ -150,6 +150,96 @@ class UserCommands(commands.Cog):
             ]
             await inter.response.send_message(random.choice(responses))
 
+    @furry.sub_command(name="спать", description="😴 Свернуться калачиком и уснуть")
+    async def sleep(self, inter: disnake.ApplicationCommandInteraction):
+        responses = [
+            f"{inter.author.mention} сворачивается клубочком и засыпает... 😴💤",
+            f"{inter.author.mention} зевает, укладывается на подушку и проваливается в сон.",
+            f"{inter.author.mention} прячет нос под хвост и мирно посапывает. 🐾",
+            f"{inter.author.mention} засыпает, мурлыча во сне. 🐱💤",
+        ]
+        await inter.response.send_message(random.choice(responses))
+
+    @furry.sub_command(name="прыгнуть", description="🐇 Прыгнуть от радости")
+    async def jump(self, inter: disnake.ApplicationCommandInteraction):
+        responses = [
+            f"{inter.author.mention} подпрыгивает на месте от восторга! 🐇✨",
+            f"{inter.author.mention} делает высокий прыжок и приземляется на мягкие лапки.",
+            f"{inter.author.mention} скачет как зайчик! 🐾",
+            f"{inter.author.mention} подпрыгивает и ловит лапками воображаемую бабочку! 🦋",
+        ]
+        await inter.response.send_message(random.choice(responses))
+
+    @furry.sub_command(name="фыркнуть", description="😤 Фыркнуть с недовольством")
+    async def snort(self, inter: disnake.ApplicationCommandInteraction):
+        responses = [
+            f"{inter.author.mention} фыркает и отворачивается! 😤",
+            f"{inter.author.mention} недовольно фыркает: \"Пфф!\"",
+            f"{inter.author.mention} вздыбливает шерсть и фыркает! 🐱💢",
+            f"{inter.author.mention} втягивает нос и презрительно фыркает.",
+        ]
+        await inter.response.send_message(random.choice(responses))
+
+    @furry.sub_command(name="уйти", description="🚪 Объявить, что вы отходите")
+    async def leave(self, inter: disnake.ApplicationCommandInteraction, причина: str = "ненадолго"):
+        responses = [
+            f"{inter.author.mention} уходит {причина}. Скоро вернётся! 🚪",
+            f"{inter.author.mention} машет лапкой и отправляется {причина}.",
+            f"{inter.author.mention} покидает беседу ({причина}). Возвращайтесь скорее!",
+        ]
+        await inter.response.send_message(random.choice(responses))
+
+    @furry.sub_command(name="покормить", description="🍲 Покормить участника")
+    async def feed(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        food = ["сочное яблоко 🍎", "ароматный суп 🥣", "блюдо с рыбой 🐟", "миску каши 🥣", "вкусное печенье 🍪"]
+        item = random.choice(food)
+        if member == inter.author:
+            await inter.response.send_message(f"{inter.author.mention} съел {item} и наелся до отвала!")
+        else:
+            await inter.response.send_message(f"{inter.author.mention} угощает {member.mention} {item}. Приятного аппетита!")
+
+    @furry.sub_command(name="подарок", description="🎁 Сделать случайный подарок участнику")
+    async def gift(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        gifts = ["пушистую игрушку 🧸", "букет полевых цветов 🌼", "звёздочку с неба ✨", "коробку конфет 🍬", "открытку с тёплыми словами 💌"]
+        present = random.choice(gifts)
+        if member == inter.author:
+            await inter.response.send_message(f"{inter.author.mention} дарит себе {present}. Сам себя не похвалишь...")
+        else:
+            await inter.response.send_message(f"{inter.author.mention} дарит {member.mention} {present}! 🎁")
+
+    @furry.sub_command(name="съесть", description="🍽️ Съесть другого участника (в шутку)")
+    async def eat(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        if member == inter.author:
+            await inter.response.send_message(f"{inter.author.mention} попытался съесть себя, но понял, что это невозможно! 🤔")
+        else:
+            responses = [
+                f"{inter.author.mention} с удовольствием съел {member.mention}! 🍽️ Очень вкусно!",
+                f"{inter.author.mention} проглотил {member.mention} целиком! 😋",
+                f"{inter.author.mention} откусил кусочек от {member.mention} и довольно замурчал! 🐱",
+                f"{inter.author.mention} съел {member.mention} и облизнулся! 👅",
+                f"{inter.author.mention} быстро умял {member.mention} – тот даже пискнуть не успел! ⚡",
+            ]
+            await inter.response.send_message(random.choice(responses))
+
+    @furry.sub_command(name="облизать", description="👅 Облизать друга")
+    async def lick_enhanced(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member = None):
+        target = member or inter.author
+        if target == inter.author:
+            await inter.response.send_message(f"{inter.author.mention} облизывает свою лапку! 👅")
+        else:
+            responses = [
+                f"{inter.author.mention} облизывает {target.mention}! 👅",
+                f"{inter.author.mention} проводит языком по щеке {target.mention}! 🐶"
+            ]
+            await inter.response.send_message(random.choice(responses))
+
+    @furry.sub_command(name="имя_фурсоны", description="🏷️ Сгенерировать случайное имя для фурсоны")
+    async def fursona_name(self, inter: disnake.ApplicationCommandInteraction):
+        prefixes = ["Пушист", "Мохнат", "Хвостат", "Злат", "Серебр", "Огне", "Ледяной", "Мягколап"]
+        suffixes = ["хвост", "лап", "зуб", "грив", "шёрст", "крыл", "ух"]
+        name = random.choice(prefixes) + random.choice(suffixes) + random.choice(["", "ик", "ка", "ок", "иш"])
+        await inter.response.send_message(f"🏷️ Предлагаю имя для твоей фурсоны: **{name.capitalize()}**")
+
     @furry.sub_command(name="фурсона", description="🎭 Сгенерировать случайную фурсону")
     async def fursona(self, inter: disnake.ApplicationCommandInteraction):
         species = ["волк", "лиса", "кошка", "собака", "дракон", "енот", "кролик", "медведь", "птица", "олень", "фелин", "канид"]
@@ -328,6 +418,57 @@ class UserCommands(commands.Cog):
         await inter.response.send_message(f"❓ **{q}**\n*Правильный ответ будет через 15 секунд...*")
         await asyncio.sleep(15)
         await inter.followup.send(f"✅ Правильный ответ: **{correct}**")
+
+    @fun.sub_command(name="таро", description="🔮 Вытянуть карту Таро")
+    async def tarot(self, inter: disnake.ApplicationCommandInteraction):
+        cards = [
+            ("Шут", "Новые начинания, спонтанность, вера в лучшее."),
+            ("Маг", "Проявление желаний, сила воли, навыки."),
+            ("Верховная Жрица", "Интуиция, тайны, внутренний голос."),
+            ("Императрица", "Плодородие, материнство, изобилие."),
+            ("Император", "Власть, стабильность, структура."),
+            ("Влюблённые", "Любовь, выбор, гармония отношений."),
+            ("Колесница", "Победа, контроль, движение вперёд."),
+            ("Сила", "Мужество, терпение, внутренняя сила."),
+            ("Отшельник", "Самоанализ, мудрость, поиск истины."),
+            ("Колесо Фортуны", "Перемены, судьба, удача."),
+            ("Справедливость", "Честность, причинность, баланс."),
+            ("Повешенный", "Жертва, новое видение, приостановка."),
+            ("Смерть", "Трансформация, окончание старого, новое начало."),
+            ("Умеренность", "Баланс, исцеление, терпение."),
+            ("Дьявол", "Привязанность, материализм, искушение."),
+            ("Башня", "Крушение, внезапные перемены, откровение."),
+            ("Звезда", "Надежда, вдохновение, ясность."),
+            ("Луна", "Иллюзии, страхи, подсознание."),
+            ("Солнце", "Радость, успех, позитив."),
+            ("Суд", "Пробуждение, возрождение, подведение итогов."),
+            ("Мир", "Завершение, исполнение, гармония."),
+        ]
+        card, meaning = random.choice(cards)
+        embed = disnake.Embed(
+            title=f"🔮 Карта Таро для {inter.author.display_name}",
+            description=f"**{card}**\n{meaning}",
+            color=disnake.Color.purple()
+        )
+        embed.set_footer(text="Будущее не определено, доверяйте своему сердцу ❤️")
+        await inter.response.send_message(embed=embed)
+
+    @fun.sub_command(name="посоветовать", description="🎱 Задать вопрос и получить ответ")
+    async def advise(self, inter: disnake.ApplicationCommandInteraction, вопрос: str):
+        answers = [
+            "Безусловно!", "Определённо да.", "Мой источник говорит, что да.", "Знаки указывают на да.",
+            "Скорее да, чем нет.", "Пока не ясно, попробуй позже.", "Не могу сказать сейчас.",
+            "Лучше не отвечать, чтобы не сглазить.", "Спроси что-то другое.", "Однозначно нет.",
+            "Я бы не советовал.", "Отрицательно.", "Шансы невелики.", "Даже не думай.",
+            "Ты сам знаешь ответ.", "Мур... (что значит 'да')", "Фыр! (категорическое нет)",
+        ]
+        answer = random.choice(answers)
+        embed = disnake.Embed(
+            title="🎱 Магический пушистый шар",
+            description=f"**Вопрос:** {вопрос}\n**Ответ:** {answer}",
+            color=disnake.Color.blurple()
+        )
+        await inter.response.send_message(embed=embed)
 
     # ====================== ГРУППА: ИГРЫ ======================
     @commands.slash_command(name="игры", description="🎮 Игры с ботом")
