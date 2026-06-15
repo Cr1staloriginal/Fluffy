@@ -175,7 +175,7 @@ class UserCommands(commands.Cog):
     async def snort(self, inter: disnake.ApplicationCommandInteraction):
         responses = [
             f"{inter.author.mention} фыркает и отворачивается! 😤",
-            f"{inter.author.mention} недовольно фыркает: \"Пфф!\"",
+            f"{inter.author.mention} недовольно фыркает: "Пфф!",
             f"{inter.author.mention} вздыбливает шерсть и фыркает! 🐱💢",
             f"{inter.author.mention} втягивает нос и презрительно фыркает.",
         ]
@@ -201,7 +201,7 @@ class UserCommands(commands.Cog):
 
     @furry.sub_command(name="подарок", description="🎁 Сделать случайный подарок участнику")
     async def gift(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
-        gifts = ["пушистую игрушку 🧸", "букет полевых цветов 🌼", "звёздочку с неба ✨", "коробку конфет 🍬", "открытку с тёплыми словами 💌"]
+        gifts = ["пушистую игрушку 🧸", "букет полевых цветов 🌼", "звёздочку с неба ✨", "коробку конфет 🍬", "открытку[...]
         present = random.choice(gifts)
         if member == inter.author:
             await inter.response.send_message(f"{inter.author.mention} дарит себе {present}. Сам себя не похвалишь...")
@@ -244,8 +244,8 @@ class UserCommands(commands.Cog):
     @furry.sub_command(name="фурсона", description="🎭 Сгенерировать случайную фурсону")
     async def fursona(self, inter: disnake.ApplicationCommandInteraction):
         species = ["волк", "лиса", "кошка", "собака", "дракон", "енот", "кролик", "медведь", "птица", "олень", "фелин", "канид"]
-        color = ["серебристый", "огненно-рыжий", "голубой", "фиолетовый", "белоснежный", "чёрный как смоль", "золотистый", "розовый", "лавандовый"]
-        trait = ["длинный пушистый хвост", "острые уши", "мягкие лапки", "блестящая шерсть", "добрые глаза", "пушистые щёки", "серёжки на ушах"]
+        color = ["серебристый", "огненно-рыжий", "голубой", "фиолетовый", "белоснежный", "чёрный как смоль", "золотистый[...]
+        trait = ["длинный пушистый хвост", "острые уши", "мягкие лапки", "блестящая шерсть", "добрые глаза", "пушистые щ[...]
         s = random.choice(species)
         c = random.choice(color)
         t = random.choice(trait)
@@ -300,25 +300,6 @@ class UserCommands(commands.Cog):
         messages = row[0] if row else 0
         voice = row[1] if row else 0
         cookies = row[2] if row else 0
-
-        embed = disnake.Embed(
-            title=target.display_name,
-            color=target.color if target.color else main_color(),
-            timestamp=disnake.utils.utcnow()
-        )
-        embed.set_thumbnail(url=target.display_avatar.url)
-        embed.add_field(name="🆔 ID", value=target.id, inline=True)
-        embed.add_field(name="🤖 Бот", value="Да" if target.bot else "Нет", inline=True)
-        embed.add_field(name="📅 Аккаунт создан", value=disnake.utils.format_dt(target.created_at, "R"), inline=False)
-        if isinstance(target, disnake.Member) and target.joined_at:
-            embed.add_field(name="📥 Присоединился", value=disnake.utils.format_dt(target.joined_at, "R"), inline=False)
-            top_role = target.top_role if target.top_role.name != "@everyone" else None
-            if top_role:
-                embed.add_field(name="⭐ Высшая роль", value=top_role.mention, inline=True)
-        embed.add_field(name="💬 Сообщений", value=messages, inline=True)
-        embed.add_field(name="🎤 Голос (мин.)", value=voice, inline=True)
-        embed.add_field(name="🍪 Печенек", value=cookies, inline=True)
-        await inter.response.send_message(embed=embed)
 
     @info.sub_command(name="топ", description="🏆 Топ участников по активности")
     async def leaderboard(self, inter: disnake.ApplicationCommandInteraction, 
@@ -548,58 +529,3 @@ class UserCommands(commands.Cog):
     @games.sub_command(name="кнб", description="✊ Камень, ножницы, бумага (игра с ботом)")
     async def rps(self, inter: disnake.ApplicationCommandInteraction, выбор: str = commands.Param(choices=["камень", "ножницы", "бумага"])):
         bot_choice = random.choice(["камень", "ножницы", "бумага"])
-        emojis = {"камень": "🪨", "ножницы": "✂️", "бумага": "📄"}
-        if выбор == bot_choice:
-            result = "Ничья!"
-        elif (выбор == "камень" and bot_choice == "ножницы") or (выбор == "ножницы" and bot_choice == "бумага") or (выбор == "бумага" and bot_choice == "камень"):
-            result = "Ты выиграл!"
-        else:
-            result = "Я выиграл!"
-        await inter.response.send_message(f"{emojis[выбор]} ты показал {выбор}\n{emojis[bot_choice]} бот показал {bot_choice}\n**{result}**")
-
-    @games.sub_command(name="кость", description="🎲 Бросить игральную кость (1-6)")
-    async def roll_dice(self, inter: disnake.ApplicationCommandInteraction):
-        result = random.randint(1, 6)
-        await inter.response.send_message(f"{inter.author.mention} бросает кость... Выпало **{result}**! 🎲")
-
-# Добавьте эти строки в конец файла cogs/user_commands.py
-
-    @commands.slash_command(name="восстановить_бд", description="Восстановить таблицы базы данных (только для владельца)")
-    @commands.is_owner()
-    async def restore_db(self, inter: disnake.ApplicationCommandInteraction):
-        import aiosqlite
-        from pathlib import Path
-        from database import DB_PATH
-        await inter.response.defer(ephemeral=True)
-        async with aiosqlite.connect(str(DB_PATH)) as db:
-            # Создаём таблицу phrases, если её нет
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS phrases (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    text TEXT UNIQUE
-                )
-            """)
-            # Загружаем фразы из templates.txt
-            templates_path = Path(__file__).parent.parent / "templates.txt"
-            if templates_path.exists():
-                with open(templates_path, "r", encoding="utf-8") as f:
-                    lines = [line.strip() for line in f if line.strip() and "{nick}" in line]
-                for line in lines:
-                    await db.execute("INSERT OR IGNORE INTO phrases (text) VALUES (?)", (line,))
-                await db.commit()
-                await inter.edit_original_response(content=f"✅ Таблица phrases создана, загружено {len(lines)} фраз.")
-            else:
-                await inter.edit_original_response(content="❌ Файл templates.txt не найден.")
-        # Проверяем и создаём другие таблицы
-        async with aiosqlite.connect(str(DB_PATH)) as db:
-            await db.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE, username TEXT, display_name TEXT DEFAULT '', verified INTEGER DEFAULT 0, points INTEGER DEFAULT 0, messages_sent INTEGER DEFAULT 0, voice_minutes INTEGER DEFAULT 0, cookies_received INTEGER DEFAULT 0, voice_join_time TIMESTAMP, last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
-            await db.execute("CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT, payload TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
-            await db.execute("CREATE TABLE IF NOT EXISTS tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, channel_id INTEGER, status TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
-            await db.execute("CREATE TABLE IF NOT EXISTS warns (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, moderator_id INTEGER NOT NULL, reason TEXT, rule_name TEXT, message_link TEXT, date TEXT, action_taken TEXT DEFAULT 'pending')")
-            await db.execute("CREATE TABLE IF NOT EXISTS birthdays (user_id INTEGER PRIMARY KEY, birthday TEXT NOT NULL, set_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
-            await db.execute("CREATE TABLE IF NOT EXISTS suggestions (id INTEGER PRIMARY KEY AUTOINCREMENT, author_id INTEGER NOT NULL, text TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'open', channel_id INTEGER, message_id INTEGER)")
-            await db.execute("CREATE TABLE IF NOT EXISTS suggestion_votes (suggestion_id INTEGER NOT NULL, user_id INTEGER NOT NULL, type TEXT NOT NULL, rating INTEGER NOT NULL, PRIMARY KEY (suggestion_id, user_id))")
-            await db.commit()
-        await inter.followup.send("✅ Все таблицы базы данных созданы.", ephemeral=True)
-def setup(bot: commands.InteractionBot):
-    bot.add_cog(UserCommands(bot))
