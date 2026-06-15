@@ -2,10 +2,10 @@ import disnake
 from disnake.ext import commands
 import os
 from database import add_warn, remove_warn
+from utils.colors import main_color
 
 MOD_LOG_CHANNEL_ID = int(os.getenv("LOG_CH_MOD", 0))
 GUILD_ID = int(os.getenv("GUILD_ID", 0))
-
 
 class WarnActionButtons(disnake.ui.View):
     def __init__(self, warn_id: int, user_id: int, reason: str):
@@ -26,7 +26,7 @@ class WarnActionButtons(disnake.ui.View):
             await member.ban(reason=f"Автомод: {self.reason}")
             await inter.followup.send(f"🔨 {member.mention} забанен по варну #{self.warn_id}. Причина: {self.reason}")
         else:
-            await inter.followup.send("❌ Участник не найден.", ephemeral=True)
+            await inter.followup.send("❌ Участник не найден на сервере.", ephemeral=True)
         await self.disable_buttons(inter)
 
     @disnake.ui.button(label="👢 Кикнуть", style=disnake.ButtonStyle.danger)
@@ -38,7 +38,7 @@ class WarnActionButtons(disnake.ui.View):
             await member.kick(reason=f"Автомод: {self.reason}")
             await inter.followup.send(f"👢 {member.mention} кикнут по варну #{self.warn_id}. Причина: {self.reason}")
         else:
-            await inter.followup.send("❌ Участник не найден.", ephemeral=True)
+            await inter.followup.send("❌ Участник не найден на сервере.", ephemeral=True)
         await self.disable_buttons(inter)
 
     @disnake.ui.button(label="🔇 Замутить", style=disnake.ButtonStyle.secondary)
@@ -56,9 +56,9 @@ class WarnActionButtons(disnake.ui.View):
                     except:
                         pass
             await member.add_roles(mute_role, reason=f"Автомод: {self.reason}")
-            await inter.followup.send(f"🔇 {member.mention} замьючен по варну #{self.warn_id}. Причина: {self.reason}")
+            await inter.followup.send(f"🔇 {member.mention} замучен по варну #{self.warn_id}. Причина: {self.reason}")
         else:
-            await inter.followup.send("❌ Участник не найден.", ephemeral=True)
+            await inter.followup.send("❌ Участник не найден на сервере.", ephemeral=True)
         await self.disable_buttons(inter)
 
     @disnake.ui.button(label="✅ Снять предупреждение", style=disnake.ButtonStyle.success)
@@ -75,7 +75,6 @@ class WarnActionButtons(disnake.ui.View):
             child.disabled = True
         await inter.edit_original_response(view=self)
         self.stop()
-
 
 class Warns(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
@@ -101,7 +100,6 @@ class Warns(commands.Cog):
         if message_link:
             embed.add_field(name="📎 Сообщение", value=f"[Перейти к сообщению]({message_link})", inline=False)
         embed.set_footer(text="Нажмите на кнопку, чтобы вынести наказание")
-
         view = WarnActionButtons(warn_id, user_id, reason)
         await channel.send(embed=embed, view=view)
 
@@ -113,7 +111,7 @@ class Warns(commands.Cog):
         if not warns:
             await inter.response.send_message(f"✅ У {member.mention} нет предупреждений.", ephemeral=True)
             return
-        embed = disnake.Embed(title=f"Предупреждения {member.display_name}", color=disnake.Color.orange())
+        embed = disnake.Embed(title=f"Предупреждения {member.display_name}", color=main_color())
         text = "\n".join([f"**#{w[0]}** от {w[6][:16]}: {w[3]}" for w in warns[:10]])
         embed.description = text[:2000]
         await inter.response.send_message(embed=embed, ephemeral=True)
@@ -125,7 +123,6 @@ class Warns(commands.Cog):
             await inter.response.send_message(f"✅ Предупреждение #{warn_id} снято.", ephemeral=True)
         else:
             await inter.response.send_message(f"❌ Предупреждение #{warn_id} не найдено.", ephemeral=True)
-
 
 def setup(bot):
     bot.add_cog(Warns(bot))
