@@ -40,7 +40,7 @@ async def init_db() -> None:
             if 'voice_join_time' not in columns:
                 await db.execute("ALTER TABLE users ADD COLUMN voice_join_time TIMESTAMP")
 
-        # Остальные таблицы
+        # Таблица phrases
         await db.execute("""
             CREATE TABLE IF NOT EXISTS phrases (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,7 +83,7 @@ async def init_db() -> None:
                 set_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Таблица suggestions с полем message_id
+        # Таблица suggestions с channel_id и message_id
         await db.execute("""
             CREATE TABLE IF NOT EXISTS suggestions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,12 +91,14 @@ async def init_db() -> None:
                 text TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 status TEXT DEFAULT 'open',
+                channel_id INTEGER,
                 message_id INTEGER
             )
         """)
-        # Добавление колонки message_id для старых таблиц (миграция)
         async with db.execute("PRAGMA table_info(suggestions)") as cur:
             cols = [row[1] for row in await cur.fetchall()]
+            if 'channel_id' not in cols:
+                await db.execute("ALTER TABLE suggestions ADD COLUMN channel_id INTEGER")
             if 'message_id' not in cols:
                 await db.execute("ALTER TABLE suggestions ADD COLUMN message_id INTEGER")
 
@@ -272,9 +274,9 @@ async def get_suggestion(suggestion_id: int):
         async with db.execute("SELECT * FROM suggestions WHERE id = ?", (suggestion_id,)) as cur:
             return await cur.fetchone()
 
-async def update_suggestion_message_id(suggestion_id: int, message_id: int):
+async def update_suggestion_message(suggestion_id: int, channel_id: int, message_id: int):
     async with aiosqlite.connect(str(DB_PATH)) as db:
-        await db.execute("UPDATE suggestions SET message_id = ? WHERE id = ?", (message_id, suggestion_id))
+        await db.execute("UPDATE suggestions SET channel_id = ?, message_id = ? WHERE id = ?", (channel_id, message_id, suggestion_id))
         await db.commit()
 
 async def add_vote(suggestion_id: int, user_id: int, type_: str, rating: int):
