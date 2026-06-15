@@ -4,6 +4,7 @@ import random
 import datetime
 import asyncio
 from database import get_random_phrase
+from utils.colors import main_color, accent_color
 
 MOSCOW_TZ = datetime.timezone(datetime.timedelta(hours=3))
 
@@ -261,7 +262,7 @@ class UserCommands(commands.Cog):
         user = member or inter.author
         embed = disnake.Embed(
             title=f"Аватар {user.display_name}",
-            color=disnake.Color.blurple(),
+            color=main_color(),
         )
         embed.set_image(url=user.display_avatar.url)
         await inter.response.send_message(embed=embed)
@@ -275,7 +276,7 @@ class UserCommands(commands.Cog):
         embed = disnake.Embed(
             title=guild.name,
             description=guild.description or "Нет описания",
-            color=disnake.Color.green(),
+            color=main_color(),
             timestamp=disnake.utils.utcnow()
         )
         if guild.icon:
@@ -288,12 +289,21 @@ class UserCommands(commands.Cog):
         embed.add_field(name="🔖 ID", value=guild.id, inline=True)
         await inter.response.send_message(embed=embed)
 
-    @info.sub_command(name="пользователь", description="👤 Информация о пользователе")
+    @info.sub_command(name="пользователь", description="👤 Подробная информация о пользователе")
     async def user_info(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member = None):
+        import aiosqlite
+        from database import DB_PATH
         target = member or inter.author
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            async with db.execute("SELECT messages_sent, voice_minutes, cookies_received FROM users WHERE user_id = ?", (target.id,)) as cur:
+                row = await cur.fetchone()
+        messages = row[0] if row else 0
+        voice = row[1] if row else 0
+        cookies = row[2] if row else 0
+
         embed = disnake.Embed(
             title=target.display_name,
-            color=target.color if target.color else disnake.Color.blurple(),
+            color=target.color if target.color else main_color(),
             timestamp=disnake.utils.utcnow()
         )
         embed.set_thumbnail(url=target.display_avatar.url)
@@ -305,6 +315,44 @@ class UserCommands(commands.Cog):
             top_role = target.top_role if target.top_role.name != "@everyone" else None
             if top_role:
                 embed.add_field(name="⭐ Высшая роль", value=top_role.mention, inline=True)
+        embed.add_field(name="💬 Сообщений", value=messages, inline=True)
+        embed.add_field(name="🎤 Голос (мин.)", value=voice, inline=True)
+        embed.add_field(name="🍪 Печенек", value=cookies, inline=True)
+        await inter.response.send_message(embed=embed)
+
+    @info.sub_command(name="топ", description="🏆 Топ участников по активности")
+    async def leaderboard(self, inter: disnake.ApplicationCommandInteraction, 
+                          тип: str = commands.Param(choices=["сообщения", "голос", "печеньки"])):
+        import aiosqlite
+        from database import DB_PATH
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            if тип == "сообщения":
+                order = "messages_sent DESC"
+                title = "📝 Топ по сообщениям"
+                unit = "сообщ."
+                field = "messages_sent"
+            elif тип == "голос":
+                order = "voice_minutes DESC"
+                title = "🎤 Топ по голосовым минутам"
+                unit = "мин."
+                field = "voice_minutes"
+            else:
+                order = "cookies_received DESC"
+                title = "🍪 Топ по печенькам"
+                unit = "🍪"
+                field = "cookies_received"
+            async with db.execute(f"SELECT user_id, {field} FROM users ORDER BY {order} LIMIT 10") as cur:
+                rows = await cur.fetchall()
+        if not rows:
+            await inter.response.send_message("Нет данных.", ephemeral=True)
+            return
+        embed = disnake.Embed(title=title, color=main_color())
+        desc = []
+        for i, (user_id, value) in enumerate(rows, 1):
+            user = self.bot.get_user(user_id)
+            name = user.display_name if user else f"User {user_id}"
+            desc.append(f"{i}. **{name}** — {value} {unit}")
+        embed.description = "\n".join(desc)
         await inter.response.send_message(embed=embed)
 
     @info.sub_command(name="время", description="🕒 Текущее время по Москве")
@@ -448,7 +496,7 @@ class UserCommands(commands.Cog):
         embed = disnake.Embed(
             title=f"🔮 Карта Таро для {inter.author.display_name}",
             description=f"**{card}**\n{meaning}",
-            color=disnake.Color.purple()
+            color=disnake.Color.purple()  # оставляем фиолетовый для магии
         )
         embed.set_footer(text="Будущее не определено, доверяйте своему сердцу ❤️")
         await inter.response.send_message(embed=embed)
@@ -466,7 +514,7 @@ class UserCommands(commands.Cog):
         embed = disnake.Embed(
             title="🎱 Магический пушистый шар",
             description=f"**Вопрос:** {вопрос}\n**Ответ:** {answer}",
-            color=disnake.Color.blurple()
+            color=main_color()
         )
         await inter.response.send_message(embed=embed)
 
@@ -513,7 +561,6 @@ class UserCommands(commands.Cog):
     async def roll_dice(self, inter: disnake.ApplicationCommandInteraction):
         result = random.randint(1, 6)
         await inter.response.send_message(f"{inter.author.mention} бросает кость... Выпало **{result}**! 🎲")
-
 
 def setup(bot: commands.InteractionBot):
     bot.add_cog(UserCommands(bot))
