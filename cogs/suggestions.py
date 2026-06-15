@@ -1,6 +1,6 @@
 import disnake
 from disnake.ext import commands
-from database import add_suggestion, get_suggestion, add_vote, get_suggestion_votes_by_type, close_suggestion
+from database import add_suggestion, get_suggestion, add_vote, get_suggestion_votes_by_type, close_suggestion, update_suggestion_message_id
 from utils.colors import main_color
 
 STAFF_ROLE_NAMES = [
@@ -44,7 +44,8 @@ class SuggestionModal(disnake.ui.Modal):
             embed.add_field(name="🔢 Общий рейтинг", value="⏳ нет голосов", inline=True)
             embed.set_footer(text="Нажмите на кнопку ниже, чтобы оценить предложение")
             view = SuggestionView(suggestion_id, inter.author.id)
-            await inter.response.send_message(embed=embed, view=view)
+            msg = await inter.response.send_message(embed=embed, view=view)
+            await update_suggestion_message_id(suggestion_id, msg.id)
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -137,7 +138,12 @@ class ActionSelectView(disnake.ui.View):
 
 async def update_suggestion_embed(inter, suggestion_id: int, closed: bool = False):
     suggestion = await get_suggestion(suggestion_id)
-    if not suggestion:
+    if not suggestion or len(suggestion) < 6 or not suggestion[5]:
+        return
+    channel = inter.channel
+    try:
+        msg = await channel.fetch_message(suggestion[5])
+    except:
         return
     staff_avg, staff_count = await get_suggestion_votes_by_type(suggestion_id, "staff")
     member_avg, member_count = await get_suggestion_votes_by_type(suggestion_id, "member")
@@ -172,7 +178,7 @@ async def update_suggestion_embed(inter, suggestion_id: int, closed: bool = Fals
     embed.add_field(name="📋 Статус", value=status, inline=False)
     if closed:
         embed.set_footer(text="Предложение закрыто")
-    await inter.edit_original_response(embed=embed, view=None if closed else SuggestionView(suggestion_id, suggestion[1]))
+    await msg.edit(embed=embed, view=None if closed else SuggestionView(suggestion_id, suggestion[1]))
 
 class Suggestions(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
