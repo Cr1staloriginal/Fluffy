@@ -27,7 +27,7 @@ async def init_db() -> None:
                 last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Добавляем недостающие колонки (миграция)
+        # Миграция для добавления недостающих колонок
         async with db.execute("PRAGMA table_info(users)") as cur:
             columns = [row[1] for row in await cur.fetchall()]
             if 'display_name' not in columns:
@@ -108,7 +108,6 @@ async def init_db() -> None:
                 PRIMARY KEY (suggestion_id, user_id)
             )
         """)
-
         await db.commit()
 
     await load_phrases_from_file()
