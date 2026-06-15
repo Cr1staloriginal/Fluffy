@@ -2,6 +2,7 @@ import disnake
 from disnake.ext import commands, tasks
 from datetime import datetime, timezone, timedelta
 from database import set_birthday, get_birthday, delete_birthday, get_today_birthdays
+from utils.colors import main_color, accent_color
 
 MOSCOW_TZ = timezone(timedelta(hours=3))
 
@@ -38,7 +39,6 @@ class SetBirthdayModal(disnake.ui.Modal):
             ephemeral=True
         )
 
-
 class BirthdayView(disnake.ui.View):
     def __init__(self, user_id: int):
         super().__init__(timeout=120)
@@ -65,7 +65,6 @@ class BirthdayView(disnake.ui.View):
         else:
             await inter.response.send_message("❌ У тебя не было сохранённой даты.", ephemeral=True)
 
-
 class Birthday(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
@@ -90,7 +89,7 @@ class Birthday(commands.Cog):
                             "Желаем счастья, здоровья, пушистых объятий и отличного настроения! 🐾\n"
                             "Пусть на сервере тебе будет всегда уютно и весело!"
                         ),
-                        color=disnake.Color.gold(),
+                        color=accent_color(),
                         timestamp=datetime.now(MOSCOW_TZ)
                     )
                     embed.set_thumbnail(url=user.display_avatar.url)
@@ -113,11 +112,10 @@ class Birthday(commands.Cog):
                 "Нажми на кнопку, чтобы сохранить, изменить или удалить дату твоего дня рождения.\n"
                 "Я буду поздравлять тебя в личные сообщения в этот день."
             ),
-            color=disnake.Color.blurple()
+            color=main_color()
         )
         view = BirthdayView(inter.author.id)
         await inter.response.send_message(embed=embed, view=view, ephemeral=True)
-
 
 def setup(bot: commands.InteractionBot):
     bot.add_cog(Birthday(bot))
