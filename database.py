@@ -4,7 +4,13 @@ import os
 import datetime
 from typing import Optional
 
-DATABASE_PATH = os.getenv("DATABASE_PATH", "data/database.db")
+# Попытка взять путь к БД из config.py, если он есть, иначе из переменных окружения или значения по умолчанию
+try:
+    from config import DATABASE_PATH as CONFIG_DB_PATH
+except Exception:
+    CONFIG_DB_PATH = None
+
+DATABASE_PATH = os.getenv("DATABASE_PATH", CONFIG_DB_PATH or "data/database.db")
 DB_PATH = Path(DATABASE_PATH)
 
 
