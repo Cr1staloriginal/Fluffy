@@ -13,6 +13,20 @@ STAFF_ROLE_NAMES = [
     "🐾 Главная лапка"
 ]
 
+async def init_suggestion_table():
+    """Создаёт таблицу suggestions, если её нет."""
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS suggestions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'pending'
+            )
+        """)
+        await db.commit()
+
 class SuggestionModal(disnake.ui.Modal):
     def __init__(self):
         components = [
@@ -28,12 +42,12 @@ class SuggestionModal(disnake.ui.Modal):
         super().__init__(title="📝 Новая идея", components=components)
 
     async def callback(self, inter: disnake.ModalInteraction):
+        await init_suggestion_table()  # гарантируем, что таблица есть
         text = inter.text_values.get("suggestion_text", "").strip()
         if not text:
             await inter.response.send_message("❌ Текст не может быть пустым.", ephemeral=True)
             return
 
-        # Сохраняем в БД
         async with aiosqlite.connect(str(DB_PATH)) as db:
             cursor = await db.execute("INSERT INTO suggestions (author_id, text) VALUES (?, ?)", (inter.author.id, text))
             await db.commit()
@@ -66,14 +80,12 @@ class SuggestionView(disnake.ui.View):
         await self.resolve_suggestion(inter, "rejected", "❌ Отклонено")
 
     async def resolve_suggestion(self, inter: disnake.MessageInteraction, status: str, status_text: str):
-        # Проверка прав: только персонал или автор?
         member = inter.author
         is_staff = any(role.name in STAFF_ROLE_NAMES for role in member.roles) or member.guild_permissions.administrator
         if not is_staff:
             await inter.response.send_message("❌ Только персонал может принимать решения.", ephemeral=True)
             return
 
-        # Получаем данные из БД
         async with aiosqlite.connect(str(DB_PATH)) as db:
             async with db.execute("SELECT author_id, text FROM suggestions WHERE id = ?", (self.suggestion_id,)) as cur:
                 row = await cur.fetchone()
@@ -84,10 +96,7 @@ class SuggestionView(disnake.ui.View):
             await db.execute("UPDATE suggestions SET status = ? WHERE id = ?", (status, self.suggestion_id))
             await db.commit()
 
-        # Удаляем исходное сообщение с кнопками
         await inter.message.delete()
-
-        # Создаём новое сообщение с результатом
         embed = disnake.Embed(
             title=f"✨ Идея №{self.suggestion_id} — {status_text}",
             description=text,
@@ -96,7 +105,6 @@ class SuggestionView(disnake.ui.View):
         )
         embed.set_author(name=f"Автор: <@{author_id}>")
         embed.set_footer(text=f"Решение принял: {member.display_name}")
-
         await inter.channel.send(embed=embed)
         await inter.response.send_message(f"✅ Идея #{self.suggestion_id} {status_text.lower()}", ephemeral=True)
 
@@ -106,6 +114,7 @@ class Suggestions(commands.Cog):
 
     @commands.slash_command(name="идея", description="📝 Предложить идею для сервера")
     async def idea(self, inter: disnake.ApplicationCommandInteraction):
+        await init_suggestion_table()  # создаём таблицу перед открытием модалки
         await inter.response.send_modal(SuggestionModal())
 
 def setup(bot: commands.InteractionBot):
