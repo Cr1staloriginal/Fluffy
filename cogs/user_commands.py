@@ -562,5 +562,44 @@ class UserCommands(commands.Cog):
         result = random.randint(1, 6)
         await inter.response.send_message(f"{inter.author.mention} бросает кость... Выпало **{result}**! 🎲")
 
+# Добавьте эти строки в конец файла cogs/user_commands.py
+
+    @commands.slash_command(name="восстановить_бд", description="Восстановить таблицы базы данных (только для владельца)")
+    @commands.is_owner()
+    async def restore_db(self, inter: disnake.ApplicationCommandInteraction):
+        import aiosqlite
+        from pathlib import Path
+        from database import DB_PATH
+        await inter.response.defer(ephemeral=True)
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            # Создаём таблицу phrases, если её нет
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS phrases (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    text TEXT UNIQUE
+                )
+            """)
+            # Загружаем фразы из templates.txt
+            templates_path = Path(__file__).parent.parent / "templates.txt"
+            if templates_path.exists():
+                with open(templates_path, "r", encoding="utf-8") as f:
+                    lines = [line.strip() for line in f if line.strip() and "{nick}" in line]
+                for line in lines:
+                    await db.execute("INSERT OR IGNORE INTO phrases (text) VALUES (?)", (line,))
+                await db.commit()
+                await inter.edit_original_response(content=f"✅ Таблица phrases создана, загружено {len(lines)} фраз.")
+            else:
+                await inter.edit_original_response(content="❌ Файл templates.txt не найден.")
+        # Проверяем и создаём другие таблицы
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            await db.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE, username TEXT, display_name TEXT DEFAULT '', verified INTEGER DEFAULT 0, points INTEGER DEFAULT 0, messages_sent INTEGER DEFAULT 0, voice_minutes INTEGER DEFAULT 0, cookies_received INTEGER DEFAULT 0, voice_join_time TIMESTAMP, last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+            await db.execute("CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT, payload TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+            await db.execute("CREATE TABLE IF NOT EXISTS tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, channel_id INTEGER, status TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+            await db.execute("CREATE TABLE IF NOT EXISTS warns (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, moderator_id INTEGER NOT NULL, reason TEXT, rule_name TEXT, message_link TEXT, date TEXT, action_taken TEXT DEFAULT 'pending')")
+            await db.execute("CREATE TABLE IF NOT EXISTS birthdays (user_id INTEGER PRIMARY KEY, birthday TEXT NOT NULL, set_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+            await db.execute("CREATE TABLE IF NOT EXISTS suggestions (id INTEGER PRIMARY KEY AUTOINCREMENT, author_id INTEGER NOT NULL, text TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'open', channel_id INTEGER, message_id INTEGER)")
+            await db.execute("CREATE TABLE IF NOT EXISTS suggestion_votes (suggestion_id INTEGER NOT NULL, user_id INTEGER NOT NULL, type TEXT NOT NULL, rating INTEGER NOT NULL, PRIMARY KEY (suggestion_id, user_id))")
+            await db.commit()
+        await inter.followup.send("✅ Все таблицы базы данных созданы.", ephemeral=True)
 def setup(bot: commands.InteractionBot):
     bot.add_cog(UserCommands(bot))
