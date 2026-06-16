@@ -321,7 +321,7 @@ class UserCommands(commands.Cog):
         await inter.response.send_message(embed=embed)
 
     @info.sub_command(name="топ", description="🏆 Топ участников по активности")
-    async def leaderboard(self, inter: disnake.ApplicationCommandInteraction, 
+    async def leaderboard(self, inter: disnake.ApplicationCommandInteraction,
                           тип: str = commands.Param(choices=["сообщения", "голос", "печеньки"])):
         import aiosqlite
         from database import DB_PATH
@@ -561,7 +561,6 @@ class UserCommands(commands.Cog):
     async def roll_dice(self, inter: disnake.ApplicationCommandInteraction):
         result = random.randint(1, 6)
         await inter.response.send_message(f"{inter.author.mention} бросает кость... Выпало **{result}**! 🎲")
-
 
 def setup(bot: commands.InteractionBot):
     bot.add_cog(UserCommands(bot))
