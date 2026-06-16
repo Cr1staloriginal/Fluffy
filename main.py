@@ -41,6 +41,10 @@ async def load_cogs():
 @bot.event
 async def on_ready():
     logger.info(f"Бот {bot.user} готов!")
+    # После запуска обновим статус один раз
+    status_cog = bot.get_cog("StatusRotator")
+    if status_cog:
+        await status_cog.update_status()
 
 async def main():
     # 1. Инициализируем базу данных
@@ -55,6 +59,6 @@ async def main():
 
 if __name__ == "__main__":
     if not TOKEN:
-        logger.error("DISCORD_TOKEN не задан. Установите переменную окружения DISCORD_TOKEN.")
+        logger.error("DISCORD_TOKEN не задан.")
         sys.exit(1)
     asyncio.run(main())
