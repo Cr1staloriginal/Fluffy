@@ -19,6 +19,7 @@ class UserCommands(commands.Cog):
 
     @furry.sub_command(name="вилять", description="🐕 Вильнуть хвостом")
     async def wag(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         responses = [
             f"{inter.author.mention} виляет хвостом! 🐕✨",
             f"{inter.author.mention} радостно виляет хвостиком! 🐾",
@@ -26,10 +27,11 @@ class UserCommands(commands.Cog):
             f"{inter.author.mention} хвост ходит ходуном от счастья! 🥰",
             f"{inter.author.mention} пушистый хвост описывает круги в воздухе! 🌪️",
         ]
-        await inter.response.send_message(random.choice(responses))
+        await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="мурчать", description="😸 Замурчать от удовольствия")
     async def purr(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         responses = [
             f"{inter.author.mention} мурчит как довольный котик! 🐱💤",
             f"{inter.author.mention} издаёт глубокое урчание... мрррр! 😻",
@@ -37,10 +39,11 @@ class UserCommands(commands.Cog):
             f"{inter.author.mention} мурчит так громко, что слышно на весь сервер! 🔊🐱",
             f"{inter.author.mention} трётся головой о вас и мурлычет! 💕",
         ]
-        await inter.response.send_message(random.choice(responses))
+        await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="лаять", description="🐺 Гавкнуть")
     async def bark(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         responses = [
             f"{inter.author.mention} громко гавкает: Гав-гав! 🐕",
             f"{inter.author.mention} лает на почтальона! 📬🐕",
@@ -48,10 +51,11 @@ class UserCommands(commands.Cog):
             f"{inter.author.mention} заливисто лает, требуя внимания! 🗣️",
             f"{inter.author.mention} подаёт голос, чтобы предупредить о чужаках! 🚨",
         ]
-        await inter.response.send_message(random.choice(responses))
+        await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="выть", description="🌕 Поволчьи на луну")
     async def howl(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         responses = [
             f"{inter.author.mention} воет на луну: Ауууу! 🌕🐺",
             f"{inter.author.mention} поднимает морду и издаёт протяжный вой...",
@@ -59,10 +63,11 @@ class UserCommands(commands.Cog):
             f"{inter.author.mention} воет вместе с ветром, грустно смотря вдаль. 🍂",
             f"{inter.author.mention} исполняет волчью серенаду для всей луны! 🎵",
         ]
-        await inter.response.send_message(random.choice(responses))
+        await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="почесать", description="🐾 Почесать за ушком (себя или друга)")
     async def scratch(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member = None):
+        await inter.response.defer()
         target = member or inter.author
         if target == inter.author:
             responses = [
@@ -76,34 +81,37 @@ class UserCommands(commands.Cog):
                 f"{inter.author.mention} почёсывает {target.mention} — теперь {target.mention} пушистый и счастливый! 🐾",
                 f"{inter.author.mention} нежно чешет {target.mention} под подбородком — тот тает! ☁️",
             ]
-        await inter.response.send_message(random.choice(responses))
+        await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="обнюхать", description="👃 Обнюхать участника (фурри-приветствие)")
     async def sniff(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        await inter.response.defer()
         responses = [
             f"{inter.author.mention} осторожно обнюхивает {member.mention}! 👃🐕",
             f"{inter.author.mention} тычется носом в {member.mention} — новый знакомый! 🐾",
             f"{inter.author.mention} и {member.mention} обмениваются запахами, виляя хвостами.",
             f"{inter.author.mention} принюхивается к {member.mention} и одобрительно кивает.",
         ]
-        await inter.response.send_message(random.choice(responses))
+        await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="лизнуть", description="👅 Лизнуть друга")
     async def lick(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        await inter.response.defer()
         if member == inter.author:
-            await inter.response.send_message(f"{inter.author.mention} пытается лизнуть себя, но не достаёт языком! 👅😂")
+            await inter.edit_original_response(f"{inter.author.mention} пытается лизнуть себя, но не достаёт языком! 👅😂")
         else:
             responses = [
                 f"{inter.author.mention} лижет {member.mention} в щёчку! 💋🐶",
                 f"{inter.author.mention} проводит языком по {member.mention} — приветствие принято! 🐺",
                 f"{inter.author.mention} облизывает нос {member.mention}! Весело! 😜",
             ]
-            await inter.response.send_message(random.choice(responses))
+            await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="играть", description="🎾 Поиграть с участником")
     async def play(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        await inter.response.defer()
         if member == inter.author:
-            await inter.response.send_message(f"{inter.author.mention} играет сам с собой... но это не так весело! 🎾")
+            await inter.edit_original_response(f"{inter.author.mention} играет сам с собой... но это не так весело! 🎾")
         else:
             responses = [
                 f"{inter.author.mention} приносит мячик {member.mention}! Бросай! 🎾🐕",
@@ -111,12 +119,13 @@ class UserCommands(commands.Cog):
                 f"{inter.author.mention} виляет хвостом, приглашая {member.mention} поиграть в догонялки! 🏃‍♂️",
                 f"{inter.author.mention} и {member.mention} играют в перетягивание каната! 🪢",
             ]
-            await inter.response.send_message(random.choice(responses))
+            await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="укусить", description="🦷 Легко укусить друга (игра)")
     async def bite(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        await inter.response.defer()
         if member == inter.author:
-            await inter.response.send_message(f"{inter.author.mention} кусает себя за хвост — ой! 🐕😖")
+            await inter.edit_original_response(f"{inter.author.mention} кусает себя за хвост — ой! 🐕😖")
         else:
             responses = [
                 f"{inter.author.mention} легонько кусает {member.mention} за ушко! 🦷🐶",
@@ -124,24 +133,26 @@ class UserCommands(commands.Cog):
                 f"{inter.author.mention} хватает {member.mention} за лапу и убегает! 🏃‍♂️",
                 f"{inter.author.mention} игриво кусает {member.mention} за пятку! 😈",
             ]
-            await inter.response.send_message(random.choice(responses))
+            await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="обнимать", description="🤗 Обнять по-фурри-дружески")
     async def furry_hug(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        await inter.response.defer()
         if member == inter.author:
-            await inter.response.send_message(f"{inter.author.mention} обнимает себя... и ему тепло! 🫂")
+            await inter.edit_original_response(f"{inter.author.mention} обнимает себя... и ему тепло! 🫂")
         else:
             responses = [
                 f"{inter.author.mention} обнимает {member.mention} и прижимается пушистым боком! 🤗",
                 f"{inter.author.mention} и {member.mention} обмениваются тёплыми объятиями! 💞",
                 f"{inter.author.mention} крепко-крепко обнимает {member.mention}, не желая отпускать! 🥹",
             ]
-            await inter.response.send_message(random.choice(responses))
+            await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="утешить", description="🤗 Утешить друга")
     async def comfort(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        await inter.response.defer()
         if member == inter.author:
-            await inter.response.send_message(f"{inter.author.mention} пытается утешить себя сам, но ему грустно... 😢")
+            await inter.edit_original_response(f"{inter.author.mention} пытается утешить себя сам, но ему грустно... 😢")
         else:
             responses = [
                 f"{inter.author.mention} нежно обнимает {member.mention} и говорит, что всё будет хорошо. 🤗💕",
@@ -149,69 +160,76 @@ class UserCommands(commands.Cog):
                 f"{inter.author.mention} гладит {member.mention} по голове и шепчет тёплые слова. 🫂",
                 f"{inter.author.mention} приносит {member.mention} плед и угощает печеньем. 🍪",
             ]
-            await inter.response.send_message(random.choice(responses))
+            await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="спать", description="😴 Свернуться калачиком и уснуть")
     async def sleep(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         responses = [
             f"{inter.author.mention} сворачивается клубочком и засыпает... 😴💤",
             f"{inter.author.mention} зевает, укладывается на подушку и проваливается в сон.",
             f"{inter.author.mention} прячет нос под хвост и мирно посапывает. 🐾",
             f"{inter.author.mention} засыпает, мурлыча во сне. 🐱💤",
         ]
-        await inter.response.send_message(random.choice(responses))
+        await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="прыгнуть", description="🐇 Прыгнуть от радости")
     async def jump(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         responses = [
             f"{inter.author.mention} подпрыгивает на месте от восторга! 🐇✨",
             f"{inter.author.mention} делает высокий прыжок и приземляется на мягкие лапки.",
             f"{inter.author.mention} скачет как зайчик! 🐾",
             f"{inter.author.mention} подпрыгивает и ловит лапками воображаемую бабочку! 🦋",
         ]
-        await inter.response.send_message(random.choice(responses))
+        await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="фыркнуть", description="😤 Фыркнуть с недовольством")
     async def snort(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         responses = [
             f"{inter.author.mention} фыркает и отворачивается! 😤",
             f"{inter.author.mention} недовольно фыркает: \"Пфф!\"",
             f"{inter.author.mention} вздыбливает шерсть и фыркает! 🐱💢",
             f"{inter.author.mention} втягивает нос и презрительно фыркает.",
         ]
-        await inter.response.send_message(random.choice(responses))
+        await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="уйти", description="🚪 Объявить, что вы отходите")
     async def leave(self, inter: disnake.ApplicationCommandInteraction, причина: str = "ненадолго"):
+        await inter.response.defer()
         responses = [
             f"{inter.author.mention} уходит {причина}. Скоро вернётся! 🚪",
             f"{inter.author.mention} машет лапкой и отправляется {причина}.",
             f"{inter.author.mention} покидает беседу ({причина}). Возвращайтесь скорее!",
         ]
-        await inter.response.send_message(random.choice(responses))
+        await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="покормить", description="🍲 Покормить участника")
     async def feed(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        await inter.response.defer()
         food = ["сочное яблоко 🍎", "ароматный суп 🥣", "блюдо с рыбой 🐟", "миску каши 🥣", "вкусное печенье 🍪"]
         item = random.choice(food)
         if member == inter.author:
-            await inter.response.send_message(f"{inter.author.mention} съел {item} и наелся до отвала!")
+            await inter.edit_original_response(f"{inter.author.mention} съел {item} и наелся до отвала!")
         else:
-            await inter.response.send_message(f"{inter.author.mention} угощает {member.mention} {item}. Приятного аппетита!")
+            await inter.edit_original_response(f"{inter.author.mention} угощает {member.mention} {item}. Приятного аппетита!")
 
     @furry.sub_command(name="подарок", description="🎁 Сделать случайный подарок участнику")
     async def gift(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        await inter.response.defer()
         gifts = ["пушистую игрушку 🧸", "букет полевых цветов 🌼", "звёздочку с неба ✨", "коробку конфет 🍬", "открытку с тёплыми словами 💌"]
         present = random.choice(gifts)
         if member == inter.author:
-            await inter.response.send_message(f"{inter.author.mention} дарит себе {present}. Сам себя не похвалишь...")
+            await inter.edit_original_response(f"{inter.author.mention} дарит себе {present}. Сам себя не похвалишь...")
         else:
-            await inter.response.send_message(f"{inter.author.mention} дарит {member.mention} {present}! 🎁")
+            await inter.edit_original_response(f"{inter.author.mention} дарит {member.mention} {present}! 🎁")
 
     @furry.sub_command(name="съесть", description="🍽️ Съесть другого участника (в шутку)")
     async def eat(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
+        await inter.response.defer()
         if member == inter.author:
-            await inter.response.send_message(f"{inter.author.mention} попытался съесть себя, но понял, что это невозможно! 🤔")
+            await inter.edit_original_response(f"{inter.author.mention} попытался съесть себя, но понял, что это невозможно! 🤔")
         else:
             responses = [
                 f"{inter.author.mention} с удовольствием съел {member.mention}! 🍽️ Очень вкусно!",
@@ -220,29 +238,32 @@ class UserCommands(commands.Cog):
                 f"{inter.author.mention} съел {member.mention} и облизнулся! 👅",
                 f"{inter.author.mention} быстро умял {member.mention} – тот даже пискнуть не успел! ⚡",
             ]
-            await inter.response.send_message(random.choice(responses))
+            await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="облизать", description="👅 Облизать друга")
     async def lick_enhanced(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member = None):
+        await inter.response.defer()
         target = member or inter.author
         if target == inter.author:
-            await inter.response.send_message(f"{inter.author.mention} облизывает свою лапку! 👅")
+            await inter.edit_original_response(f"{inter.author.mention} облизывает свою лапку! 👅")
         else:
             responses = [
                 f"{inter.author.mention} облизывает {target.mention}! 👅",
                 f"{inter.author.mention} проводит языком по щеке {target.mention}! 🐶"
             ]
-            await inter.response.send_message(random.choice(responses))
+            await inter.edit_original_response(random.choice(responses))
 
     @furry.sub_command(name="имя_фурсоны", description="🏷️ Сгенерировать случайное имя для фурсоны")
     async def fursona_name(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         prefixes = ["Пушист", "Мохнат", "Хвостат", "Злат", "Серебр", "Огне", "Ледяной", "Мягколап"]
         suffixes = ["хвост", "лап", "зуб", "грив", "шёрст", "крыл", "ух"]
         name = random.choice(prefixes) + random.choice(suffixes) + random.choice(["", "ик", "ка", "ок", "иш"])
-        await inter.response.send_message(f"🏷️ Предлагаю имя для твоей фурсоны: **{name.capitalize()}**")
+        await inter.edit_original_response(f"🏷️ Предлагаю имя для твоей фурсоны: **{name.capitalize()}**")
 
     @furry.sub_command(name="фурсона", description="🎭 Сгенерировать случайную фурсону")
     async def fursona(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         species = ["волк", "лиса", "кошка", "собака", "дракон", "енот", "кролик", "медведь", "птица", "олень", "фелин", "канид"]
         color = ["серебристый", "огненно-рыжий", "голубой", "фиолетовый", "белоснежный", "чёрный как смоль", "золотистый", "розовый", "лавандовый"]
         trait = ["длинный пушистый хвост", "острые уши", "мягкие лапки", "блестящая шерсть", "добрые глаза", "пушистые щёки", "серёжки на ушах"]
@@ -250,7 +271,7 @@ class UserCommands(commands.Cog):
         c = random.choice(color)
         t = random.choice(trait)
         result = f"{inter.author.mention} представляет свою фурсону: **{c} {s}** с {t}! 🐾✨"
-        await inter.response.send_message(result)
+        await inter.edit_original_response(result)
 
     # ====================== ГРУППА: ИНФОРМАЦИЯ ======================
     @commands.slash_command(name="инфо", description="ℹ️ Информационные команды")
@@ -269,9 +290,10 @@ class UserCommands(commands.Cog):
 
     @info.sub_command(name="сервер", description="📊 Информация о сервере")
     async def server_info(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         guild = inter.guild
         if not guild:
-            await inter.response.send_message("❌ Команда доступна только на сервере.", ephemeral=True)
+            await inter.edit_original_response("❌ Команда доступна только на сервере.")
             return
         embed = disnake.Embed(
             title=guild.name,
@@ -287,19 +309,24 @@ class UserCommands(commands.Cog):
         embed.add_field(name="📅 Создан", value=disnake.utils.format_dt(guild.created_at, "R"), inline=True)
         embed.add_field(name="🚀 Уровень буста", value=guild.premium_tier, inline=True)
         embed.add_field(name="🔖 ID", value=guild.id, inline=True)
-        await inter.response.send_message(embed=embed)
+        await inter.edit_original_response(embed=embed)
 
     @info.sub_command(name="пользователь", description="👤 Подробная информация о пользователе")
     async def user_info(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member = None):
+        await inter.response.defer()
         import aiosqlite
         from database import DB_PATH
         target = member or inter.author
-        async with aiosqlite.connect(str(DB_PATH)) as db:
-            async with db.execute("SELECT messages_sent, voice_minutes, cookies_received FROM users WHERE user_id = ?", (target.id,)) as cur:
-                row = await cur.fetchone()
-        messages = row[0] if row else 0
-        voice = row[1] if row else 0
-        cookies = row[2] if row else 0
+        try:
+            async with aiosqlite.connect(str(DB_PATH)) as db:
+                async with db.execute("SELECT messages_sent, voice_minutes, cookies_received FROM users WHERE user_id = ?", (target.id,)) as cur:
+                    row = await cur.fetchone()
+            messages = row[0] if row else 0
+            voice = row[1] if row else 0
+            cookies = row[2] if row else 0
+        except Exception as e:
+            print(f"[UserInfo] Ошибка БД: {e}")
+            messages = voice = cookies = 0
 
         embed = disnake.Embed(
             title=target.display_name,
@@ -318,33 +345,39 @@ class UserCommands(commands.Cog):
         embed.add_field(name="💬 Сообщений", value=messages, inline=True)
         embed.add_field(name="🎤 Голос (мин.)", value=voice, inline=True)
         embed.add_field(name="🍪 Печенек", value=cookies, inline=True)
-        await inter.response.send_message(embed=embed)
+        await inter.edit_original_response(embed=embed)
 
     @info.sub_command(name="топ", description="🏆 Топ участников по активности")
     async def leaderboard(self, inter: disnake.ApplicationCommandInteraction,
                           тип: str = commands.Param(choices=["сообщения", "голос", "печеньки"])):
+        await inter.response.defer()
         import aiosqlite
         from database import DB_PATH
-        async with aiosqlite.connect(str(DB_PATH)) as db:
-            if тип == "сообщения":
-                order = "messages_sent DESC"
-                title = "📝 Топ по сообщениям"
-                unit = "сообщ."
-                field = "messages_sent"
-            elif тип == "голос":
-                order = "voice_minutes DESC"
-                title = "🎤 Топ по голосовым минутам"
-                unit = "мин."
-                field = "voice_minutes"
-            else:
-                order = "cookies_received DESC"
-                title = "🍪 Топ по печенькам"
-                unit = "🍪"
-                field = "cookies_received"
-            async with db.execute(f"SELECT user_id, {field} FROM users ORDER BY {order} LIMIT 10") as cur:
-                rows = await cur.fetchall()
+        try:
+            async with aiosqlite.connect(str(DB_PATH)) as db:
+                if тип == "сообщения":
+                    order = "messages_sent DESC"
+                    title = "📝 Топ по сообщениям"
+                    unit = "сообщ."
+                    field = "messages_sent"
+                elif тип == "голос":
+                    order = "voice_minutes DESC"
+                    title = "🎤 Топ по голосовым минутам"
+                    unit = "мин."
+                    field = "voice_minutes"
+                else:
+                    order = "cookies_received DESC"
+                    title = "🍪 Топ по печенькам"
+                    unit = "🍪"
+                    field = "cookies_received"
+                async with db.execute(f"SELECT user_id, {field} FROM users ORDER BY {order} LIMIT 10") as cur:
+                    rows = await cur.fetchall()
+        except Exception as e:
+            print(f"[Leaderboard] Ошибка БД: {e}")
+            rows = []
+
         if not rows:
-            await inter.response.send_message("Нет данных.", ephemeral=True)
+            await inter.edit_original_response(content="Нет данных.")
             return
         embed = disnake.Embed(title=title, color=main_color())
         desc = []
@@ -353,7 +386,7 @@ class UserCommands(commands.Cog):
             name = user.display_name if user else f"User {user_id}"
             desc.append(f"{i}. **{name}** — {value} {unit}")
         embed.description = "\n".join(desc)
-        await inter.response.send_message(embed=embed)
+        await inter.edit_original_response(embed=embed)
 
     @info.sub_command(name="время", description="🕒 Текущее время по Москве")
     async def time(self, inter: disnake.ApplicationCommandInteraction):
@@ -382,6 +415,7 @@ class UserCommands(commands.Cog):
 
     @fun.sub_command(name="комплимент", description="💖 Получить милый комплимент")
     async def compliment(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member = None):
+        await inter.response.defer()
         target = member or inter.author
         compliments = [
             f"{target.mention}, у тебя самая милая улыбка! 😊",
@@ -392,10 +426,11 @@ class UserCommands(commands.Cog):
             f"{target.mention}, твой голос звучит как песня! 🎶",
             f"{target.mention}, с тобой всегда тепло и спокойно.",
         ]
-        await inter.response.send_message(random.choice(compliments))
+        await inter.edit_original_response(random.choice(compliments))
 
     @fun.sub_command(name="шутка", description="😂 Случайная шутка (фурри-тематика)")
     async def joke(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         jokes = [
             "Почему фурри не играют в карты? Потому что волки всегда блефуют! 🃏🐺",
             "Как назвать лису с компасом? Лиси-пеленг! 🧭🦊",
@@ -403,10 +438,11 @@ class UserCommands(commands.Cog):
             "Почему драконы любят Discord? Там можно пускать сообщения с огоньком! 🔥🐉",
             "Какой любимый танец у собак? Хвост-джига! 🕺🐕",
         ]
-        await inter.response.send_message(random.choice(jokes))
+        await inter.edit_original_response(random.choice(jokes))
 
     @fun.sub_command(name="факт", description="📖 Случайный интересный факт")
     async def fact(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         facts = [
             "Лисы умеют издавать около 40 разных звуков.",
             "Кошки мурлычут на частоте, которая помогает лечить кости.",
@@ -415,10 +451,11 @@ class UserCommands(commands.Cog):
             "Фурри-сообщество зародилось в 1980-х годах на научно-фантастических конвентах.",
             "Осьминоги имеют три сердца и голубую кровь.",
         ]
-        await inter.response.send_message(f"📌 {random.choice(facts)}")
+        await inter.edit_original_response(f"📌 {random.choice(facts)}")
 
     @fun.sub_command(name="предсказание", description="🔮 Бот предскажет ваше будущее")
     async def fortune(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         fortunes = [
             "🐾 Скоро ты встретишь нового пушистого друга!",
             "🍪 Тебя ждёт вкусное угощение сегодня вечером.",
@@ -429,10 +466,11 @@ class UserCommands(commands.Cog):
             "🌙 Лунный свет принесёт тебе вдохновение.",
             "🍬 Тебя ждёт сладкий сюрприз.",
         ]
-        await inter.response.send_message(f"🔮 {random.choice(fortunes)}")
+        await inter.edit_original_response(f"🔮 {random.choice(fortunes)}")
 
     @fun.sub_command(name="погода", description="☀️ Погода в фурри-городке")
     async def weather(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         weathers = [
             "☀️ Солнечно, пушистые облака, температура +24°C",
             "🌧️ Моросит дождик, но радуга уже близко",
@@ -441,20 +479,22 @@ class UserCommands(commands.Cog):
             "🌈 После дождя – двойная радуга!",
             "🌙 Тёплая лунная ночь, звёзды мерцают.",
         ]
-        await inter.response.send_message(f"{random.choice(weathers)}")
+        await inter.edit_original_response(f"{random.choice(weathers)}")
 
     @fun.sub_command(name="лакомство", description="🍪 Угостить себя или друга")
     async def treat(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member = None):
+        await inter.response.defer()
         treats = ["печенье 🍪", "мороженое 🍦", "шоколадку 🍫", "яблоко 🍎", "пирожное 🧁", "конфету 🍬"]
         target = member or inter.author
         treat = random.choice(treats)
         if target == inter.author:
-            await inter.response.send_message(f"{inter.author.mention} угощается {treat}! 🎂")
+            await inter.edit_original_response(f"{inter.author.mention} угощается {treat}! 🎂")
         else:
-            await inter.response.send_message(f"{inter.author.mention} угощает {target.mention} {treat}! 🎁")
+            await inter.edit_original_response(f"{inter.author.mention} угощает {target.mention} {treat}! 🎁")
 
     @fun.sub_command(name="викторина", description="🧠 Случайный вопрос (про фурри)")
     async def quiz(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         questions = [
             ("Как называется furry-сообщество в России?", "РуФурри"),
             ("Что означает слово 'фурсона'?", "Антропоморфный персонаж"),
@@ -463,12 +503,13 @@ class UserCommands(commands.Cog):
             ("Кто придумал термин 'furry'?", "Марк Мерлино"),
         ]
         q, correct = random.choice(questions)
-        await inter.response.send_message(f"❓ **{q}**\n*Правильный ответ будет через 15 секунд...*")
+        await inter.edit_original_response(f"❓ **{q}**\nПравильный ответ будет через 15 секунд...")
         await asyncio.sleep(15)
         await inter.followup.send(f"✅ Правильный ответ: **{correct}**")
 
     @fun.sub_command(name="таро", description="🔮 Вытянуть карту Таро")
     async def tarot(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer()
         cards = [
             ("Шут", "Новые начинания, спонтанность, вера в лучшее."),
             ("Маг", "Проявление желаний, сила воли, навыки."),
@@ -499,10 +540,11 @@ class UserCommands(commands.Cog):
             color=disnake.Color.purple()
         )
         embed.set_footer(text="Будущее не определено, доверяйте своему сердцу ❤️")
-        await inter.response.send_message(embed=embed)
+        await inter.edit_original_response(embed=embed)
 
     @fun.sub_command(name="посоветовать", description="🎱 Задать вопрос и получить ответ")
     async def advise(self, inter: disnake.ApplicationCommandInteraction, вопрос: str):
+        await inter.response.defer()
         answers = [
             "Безусловно!", "Определённо да.", "Мой источник говорит, что да.", "Знаки указывают на да.",
             "Скорее да, чем нет.", "Пока не ясно, попробуй позже.", "Не могу сказать сейчас.",
@@ -516,7 +558,7 @@ class UserCommands(commands.Cog):
             description=f"**Вопрос:** {вопрос}\n**Ответ:** {answer}",
             color=main_color()
         )
-        await inter.response.send_message(embed=embed)
+        await inter.edit_original_response(embed=embed)
 
     # ====================== ГРУППА: ИГРЫ ======================
     @commands.slash_command(name="игры", description="🎮 Игры с ботом")
