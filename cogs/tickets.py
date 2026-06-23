@@ -14,7 +14,7 @@ STAFF_ROLE_NAMES = [
     "🐾 Старшая лапка",
     "🐾 Главная лапка"
 ]
-MOD_LOG_CHANNEL_ID = int(os.getenv("LOG_CH_MOD", 0))
+MOD_LOG_CHANNEL_ID = int(os.getenv("LOG_CH_TICKETS", 0))
 
 class TicketModal(disnake.ui.Modal):
     def __init__(self):
