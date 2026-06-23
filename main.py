@@ -20,15 +20,14 @@ intents.voice_states = True
 
 bot = commands.InteractionBot(intents=intents)
 
-# ===== ДОБАВЛЯЕМ ДИСПЕТЧЕР ЛОГОВ =====
+# Добавляем диспетчер логов
 from utils.log_dispatcher import LogDispatcher
 bot.log_dispatcher = LogDispatcher(bot)
 
-# Импортируем init_db из database.py
+# Импорт init_db
 from database import init_db
 
 async def load_cogs():
-    """Загружает все коги из папки cogs."""
     cogs_dir = Path(__file__).parent / "cogs"
     if not cogs_dir.exists():
         logger.warning("Папка cogs не найдена")
@@ -45,6 +44,7 @@ async def load_cogs():
 @bot.event
 async def on_ready():
     logger.info(f"Бот {bot.user} готов!")
+    # Принудительно обновить статус при запуске
     status_cog = bot.get_cog("StatusRotator")
     if status_cog:
         await status_cog.update_status()
@@ -59,4 +59,6 @@ if __name__ == "__main__":
     if not TOKEN:
         logger.error("DISCORD_TOKEN не задан.")
         sys.exit(1)
-    asyncio.run(main())
+    # Используем существующий цикл, а не создаём новый через asyncio.run()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
