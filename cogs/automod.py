@@ -6,6 +6,19 @@ import time
 from collections import defaultdict
 from database import add_warn
 
+# ---------------------- ИГНОРИРУЕМЫЕ КАНАЛЫ ----------------------
+# Автомод НЕ будет проверять сообщения в каналах с этими названиями (частичное совпадение, регистр не важен)
+IGNORED_CHANNEL_NAMES = [
+    "правила", "новости", "навигация", "новички", "проли",
+    "ивенты", "партнерство", "staff", "высшие пушистники",
+    "важное", "порось", "архив"
+]
+
+# Игнорируемые по ID (точное совпадение)
+IGNORED_CHANNEL_IDS = [
+    # Добавьте сюда ID каналов, например: 123456789012345678
+]
+
 # ---------------------- ПУТИ К ФАЙЛАМ (опционально) ----------------------
 WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "words.txt")
 SCAM_DOMAINS_FILE = os.path.join(os.path.dirname(__file__), "..", "scam_domains.txt")
@@ -156,6 +169,13 @@ class AutoMod(commands.Cog):
             return
         if not message.channel.permissions_for(message.guild.me).manage_messages:
             return
+
+        # ===== ИГНОРИРУЕМ УКАЗАННЫЕ КАНАЛЫ =====
+        if message.channel.id in IGNORED_CHANNEL_IDS:
+            return
+        for name in IGNORED_CHANNEL_NAMES:
+            if name in message.channel.name.lower():
+                return
 
         content = message.content
         if not content:
