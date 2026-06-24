@@ -1,18 +1,19 @@
 import disnake
 from disnake.ext import commands
 import os
-from database import add_warn, remove_warn
+from database import add_warn, remove_warn, get_user_warns
 from utils.colors import main_color
 
 MOD_LOG_CHANNEL_ID = int(os.getenv("LOG_CH_MOD", 0))
 GUILD_ID = int(os.getenv("GUILD_ID", 0))
 
 class WarnActionButtons(disnake.ui.View):
-    def __init__(self, warn_id: int, user_id: int, reason: str):
+    def __init__(self, warn_id: int, user_id: int, reason: str, warn_count: int = 0):
         super().__init__(timeout=86400)
         self.warn_id = warn_id
         self.user_id = user_id
         self.reason = reason
+        self.warn_count = warn_count
 
     async def get_member(self, guild: disnake.Guild):
         return guild.get_member(self.user_id)
@@ -23,8 +24,17 @@ class WarnActionButtons(disnake.ui.View):
         guild = inter.guild
         member = await self.get_member(guild)
         if member:
-            await member.ban(reason=f"Автомод: {self.reason}")
-            await inter.followup.send(f"🔨 {member.mention} забанен по варну #{self.warn_id}. Причина: {self.reason}")
+            await member.ban(reason=f"Решение модератора {inter.author} (ID: {inter.author.id}): {self.reason}")
+            await inter.followup.send(f"🔨 {member.mention} забанен. Модератор: {inter.author.mention}")
+            log_embed = disnake.Embed(
+                title="🔨 Бан",
+                description=f"**Участник:** {member.mention}\n**Модератор:** {inter.author.mention} (ID: {inter.author.id})",
+                color=disnake.Color.red(),
+                timestamp=disnake.utils.utcnow()
+            )
+            log_embed.add_field(name="Причина", value=self.reason, inline=False)
+            log_embed.set_footer(text=f"Варн #{self.warn_count}")
+            await inter.bot.log_dispatcher.send("mod", log_embed)
         else:
             await inter.followup.send("❌ Участник не найден на сервере.", ephemeral=True)
         await self.disable_buttons(inter)
@@ -35,8 +45,17 @@ class WarnActionButtons(disnake.ui.View):
         guild = inter.guild
         member = await self.get_member(guild)
         if member:
-            await member.kick(reason=f"Автомод: {self.reason}")
-            await inter.followup.send(f"👢 {member.mention} кикнут по варну #{self.warn_id}. Причина: {self.reason}")
+            await member.kick(reason=f"Решение модератора {inter.author} (ID: {inter.author.id}): {self.reason}")
+            await inter.followup.send(f"👢 {member.mention} кикнут. Модератор: {inter.author.mention}")
+            log_embed = disnake.Embed(
+                title="👢 Кик",
+                description=f"**Участник:** {member.mention}\n**Модератор:** {inter.author.mention} (ID: {inter.author.id})",
+                color=disnake.Color.orange(),
+                timestamp=disnake.utils.utcnow()
+            )
+            log_embed.add_field(name="Причина", value=self.reason, inline=False)
+            log_embed.set_footer(text=f"Варн #{self.warn_count}")
+            await inter.bot.log_dispatcher.send("mod", log_embed)
         else:
             await inter.followup.send("❌ Участник не найден на сервере.", ephemeral=True)
         await self.disable_buttons(inter)
@@ -55,8 +74,17 @@ class WarnActionButtons(disnake.ui.View):
                         await channel.set_permissions(mute_role, send_messages=False, speak=False)
                     except:
                         pass
-            await member.add_roles(mute_role, reason=f"Автомод: {self.reason}")
-            await inter.followup.send(f"🔇 {member.mention} замучен по варну #{self.warn_id}. Причина: {self.reason}")
+            await member.add_roles(mute_role, reason=f"Решение модератора {inter.author} (ID: {inter.author.id}): {self.reason}")
+            await inter.followup.send(f"🔇 {member.mention} замучен. Модератор: {inter.author.mention}")
+            log_embed = disnake.Embed(
+                title="🔇 Мут",
+                description=f"**Участник:** {member.mention}\n**Модератор:** {inter.author.mention} (ID: {inter.author.id})\n**Длительность:** бессрочно (до снятия)",
+                color=disnake.Color.orange(),
+                timestamp=disnake.utils.utcnow()
+            )
+            log_embed.add_field(name="Причина", value=self.reason, inline=False)
+            log_embed.set_footer(text=f"Варн #{self.warn_count}")
+            await inter.bot.log_dispatcher.send("mod", log_embed)
         else:
             await inter.followup.send("❌ Участник не найден на сервере.", ephemeral=True)
         await self.disable_buttons(inter)
@@ -86,21 +114,26 @@ class Warns(commands.Cog):
             print(f"[Warns] Канал {MOD_LOG_CHANNEL_ID} не найден")
             return
 
+        # Считаем количество варнов у пользователя (для номера)
+        user_warns = await get_user_warns(user_id)
+        warn_count = len(user_warns) + 1
+
         warn_id = await add_warn(user_id, 0, reason, rule_name, message_link)
         guild = self.bot.get_guild(GUILD_ID)
         member = guild.get_member(user_id) if guild else None
         member_name = member.display_name if member else f"User {user_id}"
 
         embed = disnake.Embed(
-            title="⚠️ НАРУШЕНИЕ ПРАВИЛ",
-            description=f"**Участник:** {member_name} (<@{user_id}>)\n**Правило:** {rule_name}\n**Нарушение:** {reason}\n**Варн №:** {warn_id}",
+            title=f"⚠️ Предупреждение #{warn_count}",
+            description=f"**Участник:** {member_name} (<@{user_id}>)\n**Правило:** {rule_name}\n**Нарушение:** {reason}",
             color=disnake.Color.red(),
             timestamp=disnake.utils.utcnow()
         )
         if message_link:
             embed.add_field(name="📎 Сообщение", value=f"[Перейти к сообщению]({message_link})", inline=False)
-        embed.set_footer(text="Нажмите на кнопку, чтобы вынести наказание")
-        view = WarnActionButtons(warn_id, user_id, reason)
+        embed.set_footer(text=f"ID участника: {user_id}")
+
+        view = WarnActionButtons(warn_id, user_id, reason, warn_count)
         await channel.send(embed=embed, view=view)
 
     @commands.slash_command(name="варны", description="📋 Показать предупреждения участника")
@@ -111,8 +144,10 @@ class Warns(commands.Cog):
         if not warns:
             await inter.response.send_message(f"✅ У {member.mention} нет предупреждений.", ephemeral=True)
             return
-        embed = disnake.Embed(title=f"Предупреждения {member.display_name}", color=main_color())
-        text = "\n".join([f"**#{w[0]}** от {w[6][:16]}: {w[3]}" for w in warns[:10]])
+        embed = disnake.Embed(title=f"📋 Предупреждения {member.display_name}", color=main_color())
+        text = ""
+        for i, w in enumerate(warns[:10], 1):
+            text += f"**#{i}** от {w[6][:16]}: {w[3]}\n"
         embed.description = text[:2000]
         await inter.response.send_message(embed=embed, ephemeral=True)
 
