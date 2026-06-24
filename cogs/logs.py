@@ -2,6 +2,7 @@ import disnake
 from disnake.ext import commands
 from database import log_event
 from utils.colors import main_color, accent_color
+import random
 
 class Logs(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
@@ -22,12 +23,21 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: disnake.Member):
+        goodbye_messages = [
+            f"😢 {member.mention} покинул наш городок. Будем надеяться, что он вернётся к нам с новыми силами.",
+            f"👋 {member.mention} ушёл. Мы будем скучать по тебе! Возвращайся скорее!",
+            f"🌙 {member.mention} отправился в новое приключение. Удачи тебе!",
+            f"💔 {member.mention} покинул сервер. Надеемся увидеть тебя снова!",
+            f"🍃 {member.mention} решил покинуть наш уютный уголок. Пусть у тебя всё будет хорошо!",
+            f"🕊️ {member.mention} улетел в свободный полёт. Мы будем помнить тебя!"
+        ]
         embed = disnake.Embed(
-            title="📤 Покинул",
-            description=f"{member.name}#{member.discriminator} ({member.id})",
+            title="📤 Участник покинул сервер",
+            description=random.choice(goodbye_messages),
             color=disnake.Color.red(),
             timestamp=disnake.utils.utcnow()
         )
+        embed.set_footer(text=f"ID: {member.id}")
         await self.bot.log_dispatcher.send("members", embed)
         await log_event("member_remove", str(member.id))
 
@@ -89,25 +99,6 @@ class Logs(commands.Cog):
         )
         await self.bot.log_dispatcher.send("messages", embed)
         await log_event("message_edit", f"{before.author.id}|{before.content or ''}->{after.content or ''}")
-
-    # ========== Голосовые каналы ==========
-    @commands.Cog.listener()
-    async def on_voice_state_update(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
-        if before.channel == after.channel:
-            return
-        embed = disnake.Embed(title="🎤 Голосовой канал", timestamp=disnake.utils.utcnow())
-        if before.channel is None:
-            embed.description = f"{member.mention} подключился к **{after.channel.name}**"
-            embed.color = disnake.Color.green()
-        elif after.channel is None:
-            embed.description = f"{member.mention} отключился от **{before.channel.name}**"
-            embed.color = disnake.Color.red()
-        else:
-            embed.description = f"{member.mention} переместился из **{before.channel.name}** → **{after.channel.name}**"
-            embed.color = disnake.Color.gold()
-        embed.set_footer(text=f"ID: {member.id}")
-        await self.bot.log_dispatcher.send("voice", embed)
-        await log_event("voice_update", f"{member.id}|{before.channel.id if before.channel else None}->{after.channel.id if after.channel else None}")
 
 def setup(bot):
     bot.add_cog(Logs(bot))
