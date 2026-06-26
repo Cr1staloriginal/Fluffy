@@ -205,20 +205,44 @@ class AntiRaid(commands.Cog):
     # ---------- ВОССТАНОВЛЕНИЕ ИЗ БЭКАПА ----------
     @commands.slash_command(name="восстановить_бэкап", description="🔄 Восстановить структуру сервера из бэкапа")
     @commands.has_permissions(administrator=True)
-    async def restore_backup(self, inter: disnake.ApplicationCommandInteraction, имя_файла: str):
+    async def restore_backup(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+        имя_файла: str = None  # теперь опционально
+    ):
         await inter.response.defer(ephemeral=True)
         guild = inter.guild
-
         backup_dir = os.path.join(os.path.dirname(__file__), "..", "backups")
-        filepath = os.path.join(backup_dir, имя_файла)
+        if not os.path.exists(backup_dir):
+            await inter.edit_original_response("❌ Папка с бэкапами не найдена.")
+            return
 
+        # Если имя файла не указано — ищем последний бэкап для этого сервера
+        if not имя_файла:
+            prefix = f"backup_{guild.id}_"
+            files = [f for f in os.listdir(backup_dir) if f.startswith(prefix) and f.endswith(".json")]
+            if not files:
+                await inter.edit_original_response("❌ Нет бэкапов для этого сервера.")
+                return
+            # Сортируем по дате (самый свежий)
+            files.sort(reverse=True)
+            имя_файла = files[0]
+
+        filepath = os.path.join(backup_dir, имя_файла)
         if not os.path.exists(filepath):
             await inter.edit_original_response("❌ Файл бэкапа не найден.")
             return
 
+        # Восстанавливаем из файла
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
 
+        # Проверяем, что бэкап для этого сервера
+        if data["id_сервера"] != guild.id:
+            await inter.edit_original_response("❌ Этот бэкап не принадлежит текущему серверу.")
+            return
+
+        # Восстанавливаем роли
         for role_data in data["роли"]:
             try:
                 await guild.create_role(
@@ -231,12 +255,14 @@ class AntiRaid(commands.Cog):
             except:
                 pass
 
+        # Восстанавливаем категории
         for cat_data in data["категории"]:
             try:
                 await guild.create_category(name=cat_data["название"], position=cat_data["позиция"])
             except:
                 pass
 
+        # Восстанавливаем каналы
         for ch_data in data["каналы"]:
             try:
                 if ch_data["тип"] == "текстовый":
@@ -257,6 +283,37 @@ class AntiRaid(commands.Cog):
                 pass
 
         await inter.edit_original_response("✅ Бэкап успешно восстановлен!")
+
+    # ---------- КОМАНДА ДЛЯ СПИСКА БЭКАПОВ ----------
+    @commands.slash_command(name="список_бэкапов", description="📋 Показать список бэкапов для этого сервера")
+    @commands.has_permissions(administrator=True)
+    async def list_backups(self, inter: disnake.ApplicationCommandInteraction):
+        await inter.response.defer(ephemeral=True)
+        guild = inter.guild
+        backup_dir = os.path.join(os.path.dirname(__file__), "..", "backups")
+        if not os.path.exists(backup_dir):
+            await inter.edit_original_response("📭 Нет сохранённых бэкапов.")
+            return
+
+        prefix = f"backup_{guild.id}_"
+        files = [f for f in os.listdir(backup_dir) if f.startswith(prefix) and f.endswith(".json")]
+        if not files:
+            await inter.edit_original_response("📭 Нет бэкапов для этого сервера.")
+            return
+
+        files.sort(reverse=True)
+        embed = disnake.Embed(
+            title="📋 Список бэкапов",
+            description=f"Для сервера **{guild.name}**",
+            color=disnake.Color.blurple()
+        )
+        for f in files[:10]:
+            embed.add_field(
+                name=f,
+                value=f"🕐 {f.split('_')[-1].replace('.json', '')}",
+                inline=False
+            )
+        await inter.edit_original_response(embed=embed)
 
     # ---------- НАСТРОЙКА КОНФИГА ----------
     @commands.slash_command(name="антирейд", description="🛡️ Настройка анти-рейд системы")
