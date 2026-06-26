@@ -208,7 +208,7 @@ class AntiRaid(commands.Cog):
     async def restore_backup(
         self,
         inter: disnake.ApplicationCommandInteraction,
-        имя_файла: str = None  # теперь опционально
+        имя_файла: str = None
     ):
         await inter.response.defer(ephemeral=True)
         guild = inter.guild
@@ -217,14 +217,12 @@ class AntiRaid(commands.Cog):
             await inter.edit_original_response("❌ Папка с бэкапами не найдена.")
             return
 
-        # Если имя файла не указано — ищем последний бэкап для этого сервера
         if not имя_файла:
             prefix = f"backup_{guild.id}_"
             files = [f for f in os.listdir(backup_dir) if f.startswith(prefix) and f.endswith(".json")]
             if not files:
                 await inter.edit_original_response("❌ Нет бэкапов для этого сервера.")
                 return
-            # Сортируем по дате (самый свежий)
             files.sort(reverse=True)
             имя_файла = files[0]
 
@@ -233,16 +231,51 @@ class AntiRaid(commands.Cog):
             await inter.edit_original_response("❌ Файл бэкапа не найден.")
             return
 
-        # Восстанавливаем из файла
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # Проверяем, что бэкап для этого сервера
         if data["id_сервера"] != guild.id:
             await inter.edit_original_response("❌ Этот бэкап не принадлежит текущему серверу.")
             return
 
-        # Восстанавливаем роли
+        # Словарь для сопоставления старых ID категорий с новыми
+        category_map = {}
+
+        # 1. Создаём категории
+        for cat_data in data["категории"]:
+            try:
+                new_cat = await guild.create_category(
+                    name=cat_data["название"],
+                    position=cat_data["позиция"]
+                )
+                category_map[cat_data["id"]] = new_cat
+            except Exception as e:
+                print(f"Ошибка создания категории {cat_data['название']}: {e}")
+
+        # 2. Создаём каналы внутри категорий
+        for ch_data in data["каналы"]:
+            try:
+                category = category_map.get(ch_data.get("категория_id"))
+                if ch_data["тип"] == "текстовый":
+                    await guild.create_text_channel(
+                        name=ch_data["название"],
+                        category=category,
+                        position=ch_data["позиция"],
+                        topic=ch_data.get("тема", ""),
+                        slowmode_delay=ch_data.get("задержка", 0)
+                    )
+                elif ch_data["тип"] == "голосовой":
+                    await guild.create_voice_channel(
+                        name=ch_data["название"],
+                        category=category,
+                        position=ch_data["позиция"],
+                        bitrate=ch_data.get("битрейт", 64000),
+                        user_limit=ch_data.get("лимит", 0)
+                    )
+            except Exception as e:
+                print(f"Ошибка создания канала {ch_data['название']}: {e}")
+
+        # 3. Создаём роли (порядок не критичен)
         for role_data in data["роли"]:
             try:
                 await guild.create_role(
@@ -255,34 +288,7 @@ class AntiRaid(commands.Cog):
             except:
                 pass
 
-        # Восстанавливаем категории
-        for cat_data in data["категории"]:
-            try:
-                await guild.create_category(name=cat_data["название"], position=cat_data["позиция"])
-            except:
-                pass
-
-        # Восстанавливаем каналы
-        for ch_data in data["каналы"]:
-            try:
-                if ch_data["тип"] == "текстовый":
-                    await guild.create_text_channel(
-                        name=ch_data["название"],
-                        position=ch_data["позиция"],
-                        topic=ch_data.get("тема", ""),
-                        slowmode_delay=ch_data.get("задержка", 0)
-                    )
-                elif ch_data["тип"] == "голосовой":
-                    await guild.create_voice_channel(
-                        name=ch_data["название"],
-                        position=ch_data["позиция"],
-                        bitrate=ch_data.get("битрейт", 64000),
-                        user_limit=ch_data.get("лимит", 0)
-                    )
-            except:
-                pass
-
-        await inter.edit_original_response("✅ Бэкап успешно восстановлен!")
+        await inter.edit_original_response("✅ Бэкап успешно восстановлен! Структура сервера восстановлена.")
 
     # ---------- КОМАНДА ДЛЯ СПИСКА БЭКАПОВ ----------
     @commands.slash_command(name="список_бэкапов", description="📋 Показать список бэкапов для этого сервера")
@@ -348,7 +354,7 @@ class AntiRaid(commands.Cog):
         for action, cfg in self.config.items():
             status = "✅ Вкл" if cfg["limit"] > 0 else "❌ Выкл"
             punishment_map = {
-                "clear_roles_kick": "очистка ролей + кик",
+                "clear_roles_kick": "очистка_ролей + кик",
                 "timeout_3h": "таймаут 3 часа"
             }
             embed.add_field(
