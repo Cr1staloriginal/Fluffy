@@ -12,10 +12,26 @@ class Welcome(commands.Cog):
         self.verified_role_id = int(os.getenv("VERIFIED_ROLE_ID", 0))
         self.rules_channel_id = int(os.getenv("RULES_CHANNEL_ID", 0))
         self.verify_channel_id = int(os.getenv("VERIFY_CHANNEL_ID", 0))
+        # Начальные роли (список ID через запятую)
+        default_roles_str = os.getenv("DEFAULT_ROLES", "")
+        self.default_roles = [int(r.strip()) for r in default_roles_str.split(",") if r.strip()]
 
     @commands.Cog.listener()
     async def on_member_join(self, member: disnake.Member):
-        """Приветствие при входе."""
+        # Выдача начальных ролей (если они настроены)
+        if self.default_roles:
+            roles_to_add = []
+            for role_id in self.default_roles:
+                role = member.guild.get_role(role_id)
+                if role:
+                    roles_to_add.append(role)
+            if roles_to_add:
+                try:
+                    await member.add_roles(*roles_to_add, reason="Начальные роли при заходе")
+                except Exception as e:
+                    print(f"Ошибка выдачи начальных ролей: {e}")
+
+        # Приветствие
         if not self.welcome_channel_id:
             return
         channel = self.bot.get_channel(self.welcome_channel_id)
@@ -41,7 +57,6 @@ class Welcome(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: disnake.Member):
-        """Прощание при выходе."""
         if not self.welcome_channel_id:
             return
         channel = self.bot.get_channel(self.welcome_channel_id)
@@ -69,7 +84,6 @@ class Welcome(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_update(self, before: disnake.Member, after: disnake.Member):
-        """Отслеживает выдачу роли верификации."""
         if not self.verified_role_id or not self.general_channel_id:
             return
         before_roles = set(role.id for role in before.roles)
