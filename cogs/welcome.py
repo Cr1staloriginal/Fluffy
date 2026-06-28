@@ -40,6 +40,34 @@ class Welcome(commands.Cog):
         await channel.send(embed=embed, view=view)
 
     @commands.Cog.listener()
+    async def on_member_remove(self, member: disnake.Member):
+        """Прощание при выходе."""
+        if not self.welcome_channel_id:
+            return
+        channel = self.bot.get_channel(self.welcome_channel_id)
+        if not channel:
+            return
+
+        goodbye_messages = [
+            f"😢 {member.mention} покинул наш городок. Будем надеяться, что он вернётся к нам с новыми силами.",
+            f"👋 {member.mention} ушёл. Мы будем скучать по тебе! Возвращайся скорее!",
+            f"🌙 {member.mention} отправился в новое приключение. Удачи тебе!",
+            f"💔 {member.mention} покинул сервер. Надеемся увидеть тебя снова!",
+            f"🍃 {member.mention} решил покинуть наш уютный уголок. Пусть у тебя всё будет хорошо!",
+            f"🕊️ {member.mention} улетел в свободный полёт. Мы будем помнить тебя!"
+        ]
+
+        embed = disnake.Embed(
+            title="👋 Участник покинул сервер",
+            description=random.choice(goodbye_messages),
+            color=disnake.Color.red(),
+            timestamp=disnake.utils.utcnow()
+        )
+        embed.set_footer(text=f"Участников на сервере: {member.guild.member_count}")
+
+        await channel.send(embed=embed)
+
+    @commands.Cog.listener()
     async def on_member_update(self, before: disnake.Member, after: disnake.Member):
         """Отслеживает выдачу роли верификации."""
         if not self.verified_role_id or not self.general_channel_id:
@@ -67,14 +95,12 @@ class Welcome(commands.Cog):
 class WelcomeButtons(disnake.ui.View):
     def __init__(self, guild_id: int, rules_id: int, verify_id: int):
         super().__init__(timeout=None)
-        # Кнопка "Правила" — ссылка на канал
         if rules_id and guild_id:
             self.add_item(disnake.ui.Button(
                 label="📜 Правила",
                 style=disnake.ButtonStyle.link,
                 url=f"https://discord.com/channels/{guild_id}/{rules_id}"
             ))
-        # Кнопка "Верификация" — ссылка на канал
         if verify_id and guild_id:
             self.add_item(disnake.ui.Button(
                 label="✅ Верификация",
