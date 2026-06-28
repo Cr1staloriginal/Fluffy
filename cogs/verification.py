@@ -9,15 +9,14 @@ from utils.colors import main_color, accent_color
 SUBMIT_CHANNEL_ID = int(os.getenv("VERIFY_SUBMIT_CHANNEL_ID", 0))
 VERIFIED_ROLE_ID = int(os.getenv("VERIFIED_ROLE_ID", 0))
 REJECTED_ROLE_ID = int(os.getenv("REJECTED_ROLE_ID", 0))
+MODERATION_ROLE_ID = int(os.getenv("MODERATION_ROLE_ID", 0))  # Новая переменная для пинга
 GUILD_ID = int(os.getenv("GUILD_ID", 0))
 
-# Роли, которые могут принимать решения (модераторы)
 STAFF_ROLE_NAMES = [
-    "⛑️Верификатор"
+    "⛑️Верификатор",
 ]
 
 async def init_verification_table():
-    """Создаёт таблицу для отслеживания заявок, если её нет."""
     async with aiosqlite.connect(str(DB_PATH)) as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS verification_applications (
@@ -77,13 +76,11 @@ class VerificationModal(disnake.ui.Modal):
     async def callback(self, interaction: disnake.ModalInteraction):
         await init_verification_table()
 
-        # Проверяем, есть ли уже заявка у пользователя
+        # Если есть старая заявка, удаляем её
         existing = await get_application(interaction.author.id)
         if existing:
-            # Если заявка уже есть, удаляем старую
             old_msg_id, old_channel_id, status = existing
             if status == "pending":
-                # Удаляем старую заявку из канала
                 old_channel = interaction.bot.get_channel(old_channel_id)
                 if old_channel:
                     try:
@@ -121,7 +118,11 @@ class VerificationModal(disnake.ui.Modal):
 
         view = VerificationActions(interaction.author.id, interaction.author.display_name)
 
-        msg = await channel.send(embed=embed, view=view)
+        # Отправляем сообщение с упоминанием роли модерации
+        content = f"<@&{MODERATION_ROLE_ID}>" if MODERATION_ROLE_ID else ""
+        msg = await channel.send(content=content, embed=embed, view=view)
+
+        # Сохраняем ID сообщения
         await save_application(interaction.author.id, msg.id, channel.id)
 
         await interaction.response.send_message("✅ Ваша заявка отправлена на рассмотрение. Ожидайте ответа модераторов.", ephemeral=True)
@@ -188,7 +189,6 @@ class VerificationActions(disnake.ui.View):
             except:
                 await interaction.followup.send(f"❌ Не удалось выдать роль отказа.", ephemeral=True)
         else:
-            # Если роли нет – просто убираем роль верификации, если есть
             ver_role = guild.get_role(VERIFIED_ROLE_ID)
             if ver_role and ver_role in member.roles:
                 try:
@@ -217,7 +217,6 @@ class Verification(commands.Cog):
     )
     @commands.has_permissions(administrator=True)
     async def setup_verification(self, inter: disnake.ApplicationCommandInteraction):
-        """Отправляет embed с кнопкой 'Подать заявку' в текущий канал."""
         await init_verification_table()
         embed = disnake.Embed(
             title="📝 Подача заявки на вступление",
@@ -239,7 +238,6 @@ class Verification(commands.Cog):
     @commands.Cog.listener()
     async def on_interaction(self, interaction: disnake.MessageInteraction):
         if interaction.component.custom_id == "open_verification_modal":
-            # Проверяем, не забанен ли пользователь (если есть роль "Отклонено" – разрешаем повторную подачу)
             await interaction.response.send_modal(VerificationModal())
 
 def setup(bot: commands.InteractionBot):
