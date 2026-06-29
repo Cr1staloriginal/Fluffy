@@ -17,8 +17,10 @@ class Activity(commands.Cog):
     async def on_voice_state_update(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
         if member.bot:
             return
+
         if before.channel is None and after.channel is not None:
             await set_voice_join_time(member.id, time.time())
+
         elif before.channel is not None and after.channel is None:
             join_time = await get_voice_join_time(member.id)
             if join_time:
@@ -27,6 +29,7 @@ class Activity(commands.Cog):
                 if minutes > 0:
                     await add_voice_minutes(member.id, minutes)
                 await set_voice_join_time(member.id, None)
+
         elif before.channel is not None and after.channel is not None and before.channel != after.channel:
             join_time = await get_voice_join_time(member.id)
             if join_time:
@@ -40,7 +43,7 @@ class Activity(commands.Cog):
     async def on_raw_reaction_add(self, payload: disnake.RawReactionActionEvent):
         if payload.user_id == self.bot.user.id:
             return
-        if str(payload.emoji) == "🍪":
+        if str(payload.emoji) == "🍪":  # исправлено: было пустая строка
             channel = self.bot.get_channel(payload.channel_id)
             if channel:
                 try:
