@@ -20,6 +20,10 @@ class WarnActionButtons(disnake.ui.View):
 
     @disnake.ui.button(label="🔨 Забанить", style=disnake.ButtonStyle.danger)
     async def ban_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        # Проверяем, есть ли у пользователя право на бан
+        if not inter.author.guild_permissions.ban_members:
+            await inter.response.send_message("❌ У вас нет права `ban_members`.", ephemeral=True)
+            return
         await inter.response.defer()
         guild = inter.guild
         member = await self.get_member(guild)
@@ -41,6 +45,9 @@ class WarnActionButtons(disnake.ui.View):
 
     @disnake.ui.button(label="👢 Кикнуть", style=disnake.ButtonStyle.danger)
     async def kick_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        if not inter.author.guild_permissions.kick_members:
+            await inter.response.send_message("❌ У вас нет права `kick_members`.", ephemeral=True)
+            return
         await inter.response.defer()
         guild = inter.guild
         member = await self.get_member(guild)
@@ -62,6 +69,9 @@ class WarnActionButtons(disnake.ui.View):
 
     @disnake.ui.button(label="🔇 Замутить", style=disnake.ButtonStyle.secondary)
     async def mute_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        if not inter.author.guild_permissions.manage_roles:
+            await inter.response.send_message("❌ У вас нет права `manage_roles`.", ephemeral=True)
+            return
         await inter.response.defer()
         guild = inter.guild
         member = await self.get_member(guild)
@@ -91,6 +101,10 @@ class WarnActionButtons(disnake.ui.View):
 
     @disnake.ui.button(label="✅ Снять предупреждение", style=disnake.ButtonStyle.success)
     async def dismiss_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+        # Для снятия варна достаточно права moderate_members или manage_messages
+        if not (inter.author.guild_permissions.moderate_members or inter.author.guild_permissions.manage_messages):
+            await inter.response.send_message("❌ У вас нет права `moderate_members` или `manage_messages`.", ephemeral=True)
+            return
         await inter.response.defer()
         if await remove_warn(self.warn_id):
             await inter.followup.send(f"✅ Предупреждение #{self.warn_id} снято с <@{self.user_id}>.")
