@@ -33,6 +33,13 @@ class AnnounceModal(disnake.ui.Modal):
                 custom_id="announce_image",
                 required=False,
                 max_length=500
+            ),
+            disnake.ui.TextInput(
+                label="Упомянуть роль (ID или @упоминание, опционально)",
+                placeholder="Например: 123456789 или @Новости",
+                custom_id="announce_role",
+                required=False,
+                max_length=50
             )
         ]
         super().__init__(title="📢 Создание объявления", components=components)
@@ -42,6 +49,7 @@ class AnnounceModal(disnake.ui.Modal):
         text = inter.text_values.get("announce_text", "")
         color_name = inter.text_values.get("announce_color", "").lower().strip()
         image_url = inter.text_values.get("announce_image", "").strip()
+        role_input = inter.text_values.get("announce_role", "").strip()
 
         color_map = {
             "синий": disnake.Color.blue(),
@@ -64,7 +72,46 @@ class AnnounceModal(disnake.ui.Modal):
             embed.set_image(url=image_url)
         embed.set_footer(text=f"Объявление | {inter.author.display_name}")
 
-        await inter.response.send_message(embed=embed)
+        # Определяем роль для упоминания
+        mention_text = ""
+        if role_input:
+            # Пытаемся получить роль по ID
+            try:
+                role_id = int(role_input.replace("<@&", "").replace(">", ""))
+                role = inter.guild.get_role(role_id)
+                if role:
+                    mention_text = role.mention
+            except:
+                # Если это не ID, ищем по названию
+                role = disnake.utils.get(inter.guild.roles, name=role_input)
+                if role:
+                    mention_text = role.mention
+                else:
+                    # Если роль не найдена, ищем по упоминанию
+                    if role_input.startswith("<@&") and role_input.endswith(">"):
+                        try:
+                            role_id = int(role_input[3:-1])
+                            role = inter.guild.get_role(role_id)
+                            if role:
+                                mention_text = role.mention
+                        except:
+                            pass
+
+        # Если роль не найдена, отправляем без пинга
+        if not mention_text and role_input:
+            await inter.response.send_message(
+                f"⚠️ Роль `{role_input}` не найдена. Объявление отправлено без упоминания.",
+                ephemeral=True
+            )
+            await inter.channel.send(embed=embed)
+            return
+
+        # Отправляем сообщение с упоминанием (если есть)
+        await inter.response.send_message("✅ Объявление отправлено!", ephemeral=True)
+        if mention_text:
+            await inter.channel.send(content=mention_text, embed=embed)
+        else:
+            await inter.channel.send(embed=embed)
 
 class Announce(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
@@ -73,6 +120,7 @@ class Announce(commands.Cog):
     @commands.slash_command(name="объявление", description="📢 Создать объявление через модальное окно (только для администраторов)")
     @commands.has_permissions(administrator=True)
     async def announce(self, inter: disnake.ApplicationCommandInteraction):
+        """Открывает модальное окно для создания объявления."""
         await inter.response.send_modal(AnnounceModal())
 
 def setup(bot: commands.InteractionBot):
