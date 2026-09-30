@@ -28,8 +28,8 @@ def get_current_season() -> str:
     if month == 4 and 1 <= day <= 10:
         return "easter"
 
-    # 🎉 День рождения сервера (можно настроить): 3 декабря
-    if month == 12 and day == 3:
+    # 🎉 День рождения сервера (можно настроить): 30 октября
+    if month == 10 and day == 30:
         return "server_birthday"
 
     return "default"
