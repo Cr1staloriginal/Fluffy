@@ -57,7 +57,7 @@ def get_season_end_date(season: str) -> str:
         "valentine": "7 февраля — 15 февраля",
         "spring": "1 марта — 10 марта",
         "easter": "1 апреля — 10 апреля",
-        "server_birthday": "3 декабря",
+        "server_birthday": "30 октября",
         "default": "весь год"
     }
     return periods.get(season, "—")
