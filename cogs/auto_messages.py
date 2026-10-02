@@ -3,18 +3,34 @@ from disnake.ext import commands, tasks
 import datetime
 import random
 import os
+import asyncio
 from utils.seasons import get_current_season, get_season_name
+
+
+# ===== ЧАСОВОЙ ПОЯС =====
+# По умолчанию — Москва (UTC+3). Можно изменить через переменную окружения TIMEZONE_OFFSET
+TIMEZONE_OFFSET = int(os.getenv("TIMEZONE_OFFSET", 3))  # +3 для Москвы
+SERVER_TZ = datetime.timezone(datetime.timedelta(hours=TIMEZONE_OFFSET))
+
+
+def get_local_time() -> datetime.datetime:
+    """Возвращает текущее время с учётом часового пояса из .env."""
+    return datetime.datetime.now(SERVER_TZ)
 
 
 class AutoMessages(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
         self.channel_id = int(os.getenv("AUTO_MESSAGE_CHANNEL_ID", 0))
-        self.interval_minutes = int(os.getenv("AUTO_MESSAGE_INTERVAL", 60))  # по умолчанию 1 час
-        self.min_delay = int(os.getenv("AUTO_MESSAGE_MIN_DELAY", 0))  # минимальная задержка в минутах
+        self.interval_minutes = int(os.getenv("AUTO_MESSAGE_INTERVAL", 60))
+        self.min_delay = int(os.getenv("AUTO_MESSAGE_MIN_DELAY", 0))
         self.enabled = os.getenv("AUTO_MESSAGE_ENABLED", "true").lower() == "true"
 
-        # ===== ДНЕВНЫЕ СООБЩЕНИЯ (по сезонам) =====
+        # Часы ночи (по локальному времени)
+        self.night_start = int(os.getenv("NIGHT_START_HOUR", 23))
+        self.night_end = int(os.getenv("NIGHT_END_HOUR", 6))
+
+        # ===== ДНЕВНЫЕ СООБЩЕНИЯ =====
         self.messages_day = {
             "default": [
                 "🐾 {bot} весело играет с хвостиком!",
@@ -120,7 +136,6 @@ class AutoMessages(commands.Cog):
             "⭐ {bot} спит под одеялом из звёздочек!",
         ]
 
-        # Запускаем задачу, если включено
         if self.enabled:
             self.auto_message.start()
         else:
@@ -130,9 +145,19 @@ class AutoMessages(commands.Cog):
         if self.auto_message.is_running():
             self.auto_message.cancel()
 
+    def is_night(self) -> bool:
+        """Проверяет, ночь ли сейчас (по локальному времени)."""
+        now = get_local_time()
+        hour = now.hour
+        if self.night_start > self.night_end:
+            # Например, 23 → 6 (через полночь)
+            return hour >= self.night_start or hour < self.night_end
+        else:
+            # Например, 0 → 6
+            return self.night_start <= hour < self.night_end
+
     @tasks.loop(minutes=60)
     async def auto_message(self):
-        # Обновляем интервал, если он изменился в .env
         if self.auto_message.minutes != self.interval_minutes:
             self.auto_message.change_interval(minutes=self.interval_minutes)
 
@@ -141,11 +166,9 @@ class AutoMessages(commands.Cog):
             print(f"[AutoMessages] Канал {self.channel_id} не найден")
             return
 
-        # Определяем время суток
-        now = datetime.datetime.now()
-        hour = now.hour
-        # Ночное время: с 23:00 до 6:00
-        if hour >= 23 or hour < 6:
+        now = get_local_time()
+
+        if self.is_night():
             msg = random.choice(self.messages_night)
         else:
             season = get_current_season()
@@ -156,22 +179,22 @@ class AutoMessages(commands.Cog):
 
         try:
             await channel.send(text)
-            print(f"[AutoMessages] Отправлено: {text}")
+            print(f"[AutoMessages] ({now.strftime('%H:%M %d.%m')}) Отправлено: {text}")
         except Exception as e:
             print(f"[AutoMessages] Ошибка отправки: {e}")
 
     @auto_message.before_loop
     async def before_auto_message(self):
         await self.bot.wait_until_ready()
-        # Небольшая случайная задержка перед первым сообщением
         if self.min_delay > 0:
             delay = random.randint(0, self.min_delay * 60)
             print(f"[AutoMessages] Первое сообщение через {delay // 60} мин {delay % 60} сек")
             await asyncio.sleep(delay)
-        print("[AutoMessages] Задача автоматических сообщений запущена")
+        now = get_local_time()
+        print(f"[AutoMessages] Запущено. Локальное время бота: {now.strftime('%H:%M %d.%m.%Y %Z')}")
 
-    # ===== КОМАНДЫ ДЛЯ АДМИНИСТРАТОРА =====
-    @commands.slash_command(name="автосообщение", description="⚙️ Управление автосообщениями (только для администраторов)")
+    # ===== КОМАНДЫ =====
+    @commands.slash_command(name="автосообщение", description="⚙️ Управление автосообщениями")
     @commands.has_permissions(administrator=True)
     async def auto_group(self, inter: disnake.ApplicationCommandInteraction):
         pass
@@ -180,40 +203,42 @@ class AutoMessages(commands.Cog):
     async def status(self, inter: disnake.ApplicationCommandInteraction):
         channel = self.bot.get_channel(self.channel_id)
         channel_text = channel.mention if channel else "❌ не найден"
-
         season = get_current_season()
         running = "✅ Включены" if self.auto_message.is_running() else "❌ Выключены"
 
-        embed = disnake.Embed(
-            title="📢 Автосообщения",
-            color=disnake.Color.blurple()
-        )
+        now_local = get_local_time()
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        night_status = "🌙 Ночь" if self.is_night() else "☀️ День"
+
+        embed = disnake.Embed(title="📢 Автосообщения", color=disnake.Color.blurple())
         embed.add_field(name="Статус", value=running, inline=True)
         embed.add_field(name="Канал", value=channel_text, inline=True)
         embed.add_field(name="Интервал", value=f"{self.interval_minutes} мин", inline=True)
-        embed.add_field(name="Текущий сезон", value=get_season_name(season), inline=False)
+        embed.add_field(name="Текущий сезон", value=get_season_name(season), inline=True)
+        embed.add_field(name="Время суток", value=night_status, inline=True)
+        embed.add_field(name="Часовой пояс", value=f"UTC{TIMEZONE_OFFSET:+d}", inline=True)
+        embed.add_field(
+            name="🕐 Время бота",
+            value=f"Локальное: `{now_local.strftime('%H:%M')}`\nUTC: `{now_utc.strftime('%H:%M')}`",
+            inline=False
+        )
         await inter.response.send_message(embed=embed, ephemeral=True)
 
-    @auto_group.sub_command(name="отправить", description="Отправить автосообщение прямо сейчас (для теста)")
+    @auto_group.sub_command(name="отправить", description="Отправить автосообщение прямо сейчас (тест)")
     async def send_now(self, inter: disnake.ApplicationCommandInteraction):
         await inter.response.defer(ephemeral=True)
         await self.auto_message()
         await inter.edit_original_response(content="✅ Сообщение отправлено!")
 
     @auto_group.sub_command(name="канал", description="Установить канал для автосообщений")
-    async def set_channel(
-        self,
-        inter: disnake.ApplicationCommandInteraction,
-        канал: disnake.TextChannel
-    ):
+    async def set_channel(self, inter: disnake.ApplicationCommandInteraction, канал: disnake.TextChannel):
         self.channel_id = канал.id
         await inter.response.send_message(
-            f"✅ Канал для автосообщений установлен: {канал.mention}\n"
-            f"⚠️ Не забудьте добавить `AUTO_MESSAGE_CHANNEL_ID={канал.id}` в `.env`.",
+            f"✅ Канал: {канал.mention}\n⚠️ Добавьте `AUTO_MESSAGE_CHANNEL_ID={канал.id}` в `.env`.",
             ephemeral=True
         )
 
-    @auto_group.sub_command(name="интервал", description="Установить интервал автосообщений (в минутах)")
+    @auto_group.sub_command(name="интервал", description="Установить интервал (в минутах)")
     async def set_interval(
         self,
         inter: disnake.ApplicationCommandInteraction,
@@ -223,13 +248,9 @@ class AutoMessages(commands.Cog):
         if self.auto_message.is_running():
             self.auto_message.change_interval(minutes=минуты)
         await inter.response.send_message(
-            f"✅ Интервал изменён на **{минуты} мин**.\n"
-            f"⚠️ Для сохранения добавьте `AUTO_MESSAGE_INTERVAL={минуты}` в `.env`.",
+            f"✅ Интервал: **{минуты} мин**.\n⚠️ Сохраните `AUTO_MESSAGE_INTERVAL={минуты}` в `.env`.",
             ephemeral=True
         )
-
-
-import asyncio  # нужен для before_loop
 
 
 def setup(bot: commands.InteractionBot):
