@@ -98,7 +98,7 @@ class ServerSettings(commands.Cog):
     async def set_value(
         self,
         inter: disnake.ApplicationCommandInteraction,
-        ключ: str = commands.Param(choices=SETTING_LABELS),
+        ключ: str = commands.Param(choices={label: key for key, label in SETTING_LABELS.items()}),
         значение: str = commands.Param(description="ID, число, дата или true/false"),
     ):
         if inter.guild is None:
@@ -121,7 +121,7 @@ class ServerSettings(commands.Cog):
     async def reset_value(
         self,
         inter: disnake.ApplicationCommandInteraction,
-        ключ: str = commands.Param(choices=SETTING_LABELS),
+        ключ: str = commands.Param(choices={label: key for key, label in SETTING_LABELS.items()}),
     ):
         if inter.guild is None:
             await inter.response.send_message("Эта команда доступна только на сервере.", ephemeral=True)
