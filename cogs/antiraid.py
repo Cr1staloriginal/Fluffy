@@ -9,8 +9,9 @@ from datetime import datetime
 import aiosqlite
 from database import DB_PATH
 
-# Destructive anti-raid actions require explicit opt-in after testing thresholds.
-AUTO_PUNISH = os.getenv("ANTIRAID_AUTO_PUNISH", "false").strip().lower() in {
+# Automatic anti-raid response is enabled by default: the configured threshold
+# triggers a kick/timeout. Set ANTIRAID_AUTO_PUNISH=false to run in log-only mode.
+AUTO_PUNISH = os.getenv("ANTIRAID_AUTO_PUNISH", "true").strip().lower() in {
     "1", "true", "yes", "on", "да"
 }
 
@@ -18,7 +19,8 @@ AUTO_PUNISH = os.getenv("ANTIRAID_AUTO_PUNISH", "false").strip().lower() in {
 RAID_CONFIG = {
     "создание_каналов": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
     "изменение_каналов": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
-    "удаление_каналов": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
+    # Five channel deletions in one second is treated as an urgent raid.
+    "удаление_каналов": {"limit": 5, "time_window": 1, "punishment": "kick"},
     "создание_ролей": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
     "изменение_ролей": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
     "удаление_ролей": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
@@ -94,8 +96,9 @@ class AntiRaid(commands.Cog):
     # ---------- ОСНОВНАЯ ЛОГИКА ----------
     async def handle_action(self, action_type: str, guild: disnake.Guild, actor):
         config = self.config.get(action_type)
-        # Never attribute an event to the bot itself. Actor attribution requires audit-log access.
-        if actor is None or getattr(actor, "bot", False):
+        # Actor attribution requires audit-log access. Bot accounts are valid
+        # suspects too, so do not ignore them just because actor.bot is true.
+        if actor is None:
             return
         if not config or config.get("limit", 0) == 0:
             return
@@ -119,8 +122,6 @@ class AntiRaid(commands.Cog):
             await self.log_raid(guild, action_type, actor, "пропущено: владелец сервера")
             return
 
-        # Start in audit-only mode. Audit-log attribution and rate thresholds can
-        # be imperfect; enable sanctions explicitly only after testing on the server.
         if not AUTO_PUNISH:
             await self.log_raid(
                 guild, action_type, actor,
@@ -128,28 +129,44 @@ class AntiRaid(commands.Cog):
             )
             return
 
-        if punishment == "clear_roles_kick":
-            if isinstance(actor, disnake.Member):
-                try:
-                    await actor.edit(roles=[], reason=f"Анти-рейд: {action_type}")
-                    await actor.kick(reason=f"Анти-рейд: {action_type}")
-                except:
-                    pass
-            elif isinstance(actor, disnake.User):
-                try:
-                    await guild.ban(actor, reason=f"Анти-рейд: {action_type}")
-                except:
-                    pass
+        reason = f"Анти-рейд: превышен порог для действия «{action_type}»"
+        member = actor if isinstance(actor, disnake.Member) else guild.get_member(actor.id)
+        if member is None:
+            try:
+                member = await guild.fetch_member(actor.id)
+            except (disnake.NotFound, disnake.Forbidden, disnake.HTTPException):
+                member = None
 
-        elif punishment == "timeout_3h":
-            if isinstance(actor, disnake.Member):
-                try:
-                    until = disnake.utils.utcnow() + datetime.timedelta(hours=3)
-                    await actor.timeout(until, reason="Анти-рейд: спам")
-                except:
-                    pass
+        if punishment in {"kick", "clear_roles_kick"}:
+            if member is None:
+                await self.log_raid(guild, action_type, actor, "требуется кик, но участник уже вышел или не найден")
+                return
+            try:
+                await member.kick(reason=reason)
+                await self.log_raid(guild, action_type, member, "кик выполнен")
+            except (disnake.Forbidden, disnake.HTTPException) as exc:
+                await self.log_raid(
+                    guild, action_type, member,
+                    f"НЕ УДАЛОСЬ КИКНУТЬ: {type(exc).__name__}; проверь права Kick Members и иерархию ролей"
+                )
+            return
 
-        await self.log_raid(guild, action_type, actor, punishment)
+        if punishment == "timeout_3h":
+            if member is None:
+                await self.log_raid(guild, action_type, actor, "таймаут не выдан: участник не найден")
+                return
+            try:
+                until = disnake.utils.utcnow() + datetime.timedelta(hours=3)
+                await member.timeout(until, reason=reason)
+                await self.log_raid(guild, action_type, member, "таймаут 3 часа выполнен")
+            except (disnake.Forbidden, disnake.HTTPException) as exc:
+                await self.log_raid(
+                    guild, action_type, member,
+                    f"НЕ УДАЛОСЬ ВЫДАТЬ ТАЙМАУТ: {type(exc).__name__}; проверь права и иерархию ролей"
+                )
+            return
+
+        await self.log_raid(guild, action_type, actor, f"неизвестный тип наказания: {punishment}")
 
     async def log_raid(self, guild: disnake.Guild, action_type: str, actor, punishment: str):
         channel = guild.system_channel or next(iter(guild.text_channels), None)
@@ -162,7 +179,11 @@ class AntiRaid(commands.Cog):
                 color=disnake.Color.red(),
                 timestamp=disnake.utils.utcnow()
             )
-            await channel.send(embed=embed)
+            try:
+                await channel.send(embed=embed)
+            except (disnake.Forbidden, disnake.HTTPException):
+                # A missing log-channel permission must not crash anti-raid handling.
+                pass
 
     # ---------- БЭКАП СЕРВЕРА ----------
     @commands.slash_command(name="бэкап", description="📦 Создать бэкап структуры сервера")
