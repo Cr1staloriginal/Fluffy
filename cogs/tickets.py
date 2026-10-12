@@ -107,7 +107,7 @@ class CloseTicketButton(disnake.ui.View):
 
     @disnake.ui.button(label="🔒 Закрыть тикет", style=disnake.ButtonStyle.danger, custom_id="close_ticket")
     async def close_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        if inter.channel.id != self.channel_id:
+        if self.channel_id and inter.channel.id != self.channel_id:
             await inter.response.send_message("❌ Эта кнопка работает только в этом канале.", ephemeral=True)
             return
         await inter.response.defer()
@@ -182,6 +182,11 @@ class CreateTicketView(disnake.ui.View):
 class Tickets(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
+
+    def cog_load(self):
+        # Register persistent views again after every restart.
+        self.bot.add_view(CreateTicketView())
+        self.bot.add_view(CloseTicketButton(0, 0))
 
     @commands.slash_command(
         name="setup_tickets",
