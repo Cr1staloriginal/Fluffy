@@ -3,7 +3,7 @@ from disnake.ext import commands, tasks
 import time
 import asyncio
 import json
-import datetime
+import datetime as datetime_module
 import os
 from collections import deque, defaultdict
 from datetime import datetime
@@ -160,7 +160,7 @@ class AntiRaid(commands.Cog):
                 await self.log_raid(guild, action_type, actor, "таймаут не выдан: участник не найден")
                 return
             try:
-                until = disnake.utils.utcnow() + __import__('datetime').timedelta(hours=3)
+                until = disnake.utils.utcnow() + datetime_module.timedelta(hours=3)
                 await member.timeout(until, reason=reason)
                 await self.log_raid(guild, action_type, member, "таймаут 3 часа выполнен")
             except (disnake.Forbidden, disnake.HTTPException) as exc:
