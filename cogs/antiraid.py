@@ -50,37 +50,51 @@ class AntiRaid(commands.Cog):
     # ---------- ОБРАБОТЧИКИ СОБЫТИЙ ----------
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel: disnake.abc.GuildChannel):
-        await self.handle_action("создание_каналов", channel.guild, await self.find_actor(channel.guild, disnake.AuditLogAction.channel_create, channel.id))
+        occurred_at = time.monotonic()
+        actor = await self.find_actor(channel.guild, disnake.AuditLogAction.channel_create, channel.id)
+        await self.handle_action("создание_каналов", channel.guild, actor, occurred_at)
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before: disnake.abc.GuildChannel, after: disnake.abc.GuildChannel):
-        await self.handle_action("изменение_каналов", after.guild, await self.find_actor(after.guild, disnake.AuditLogAction.channel_update, after.id))
+        occurred_at = time.monotonic()
+        actor = await self.find_actor(after.guild, disnake.AuditLogAction.channel_update, after.id)
+        await self.handle_action("изменение_каналов", after.guild, actor, occurred_at)
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: disnake.abc.GuildChannel):
-        await self.handle_action("удаление_каналов", channel.guild, await self.find_actor(channel.guild, disnake.AuditLogAction.channel_delete, channel.id))
+        occurred_at = time.monotonic()
+        actor = await self.find_actor(channel.guild, disnake.AuditLogAction.channel_delete, channel.id)
+        await self.handle_action("удаление_каналов", channel.guild, actor, occurred_at)
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: disnake.Role):
-        await self.handle_action("создание_ролей", role.guild, await self.find_actor(role.guild, disnake.AuditLogAction.role_create, role.id))
+        occurred_at = time.monotonic()
+        actor = await self.find_actor(role.guild, disnake.AuditLogAction.role_create, role.id)
+        await self.handle_action("создание_ролей", role.guild, actor, occurred_at)
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before: disnake.Role, after: disnake.Role):
-        await self.handle_action("изменение_ролей", after.guild, await self.find_actor(after.guild, disnake.AuditLogAction.role_update, after.id))
+        occurred_at = time.monotonic()
+        actor = await self.find_actor(after.guild, disnake.AuditLogAction.role_update, after.id)
+        await self.handle_action("изменение_ролей", after.guild, actor, occurred_at)
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role: disnake.Role):
-        await self.handle_action("удаление_ролей", role.guild, await self.find_actor(role.guild, disnake.AuditLogAction.role_delete, role.id))
+        occurred_at = time.monotonic()
+        actor = await self.find_actor(role.guild, disnake.AuditLogAction.role_delete, role.id)
+        await self.handle_action("удаление_ролей", role.guild, actor, occurred_at)
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: disnake.Guild, user: disnake.User):
-        await self.handle_action("бан", guild, await self.find_actor(guild, disnake.AuditLogAction.ban, user.id))
+        occurred_at = time.monotonic()
+        actor = await self.find_actor(guild, disnake.AuditLogAction.ban, user.id)
+        await self.handle_action("бан", guild, actor, occurred_at)
 
     @commands.Cog.listener()
     async def on_message(self, message: disnake.Message):
         if message.author.bot or not message.guild:
             return
-        await self.handle_action("спам", message.guild, message.author)
+        await self.handle_action("спам", message.guild, message.author, time.monotonic())
 
     async def find_actor(self, guild: disnake.Guild, action, target_id: int):
         """Find the audit-log actor for this exact target, retrying briefly for API lag."""
@@ -98,7 +112,7 @@ class AntiRaid(commands.Cog):
         return None
 
     # ---------- ОСНОВНАЯ ЛОГИКА ----------
-    async def handle_action(self, action_type: str, guild: disnake.Guild, actor):
+    async def handle_action(self, action_type: str, guild: disnake.Guild, actor, occurred_at: float | None = None):
         config = self.config.get(action_type)
         # Actor attribution requires audit-log access. Bot accounts are valid
         # suspects too, so do not ignore them just because actor.bot is true.
@@ -107,7 +121,8 @@ class AntiRaid(commands.Cog):
         if not config or config.get("limit", 0) == 0:
             return
 
-        now = time.time()
+        # Count when Discord delivered the event, not after audit-log API latency.
+        now = occurred_at if occurred_at is not None else time.monotonic()
         tracker = self.trackers[action_type][(guild.id, actor.id)]
         tracker.append(now)
 
@@ -122,7 +137,7 @@ class AntiRaid(commands.Cog):
     async def apply_punishment(self, guild: disnake.Guild, actor, punishment: str, action_type: str):
         if actor is None or (guild.me and actor.id == guild.me.id):
             return
-        if isinstance(actor, disnake.Member) and actor.id == guild.owner_id:
+        if actor.id == guild.owner_id:
             await self.log_raid(guild, action_type, actor, "пропущено: владелец сервера")
             return
 
