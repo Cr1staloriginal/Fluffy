@@ -2,11 +2,13 @@
 
 > Многофункциональный Discord-бот для модерации, веселья и уюта на вашем сервере.
 
-[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/oauth2/authorize?client_id=1445630419390431282&permissions=8&scope=bot%20applications.commands)
+[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/oauth2/authorize?client_id=1445630419390431282&permissions=1099816889558&scope=bot%20applications.commands)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 ## 📄 Лицензия
 
 Этот проект распространяется под лицензией MIT. Подробнее см. в файле [LICENSE](LICENSE).
+
+> **Безопасность:** ссылка приглашения больше не запрашивает `Administrator`. После приглашения проверьте список разрешений и оставьте только те, которые нужны включённым модулям. Не публикуйте рабочую SQLite-базу, токены или резервные копии.
 
 ---
 
