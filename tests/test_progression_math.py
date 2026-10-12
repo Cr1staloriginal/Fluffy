@@ -17,7 +17,7 @@ class ProgressionMathTests(unittest.TestCase):
 
     def test_progress_is_relative_to_current_level(self):
         self.assertEqual(xp_progress(0), (0, 0, 100))
-        self.assertEqual(xp_progress(125), (1, 25, 250))
+        self.assertEqual(xp_progress(125), (1, 25, 200))
 
     def test_negative_xp_is_rejected(self):
         with self.assertRaises(ValueError):
