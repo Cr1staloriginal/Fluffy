@@ -9,6 +9,11 @@ from datetime import datetime
 import aiosqlite
 from database import DB_PATH
 
+# Destructive anti-raid actions require explicit opt-in after testing thresholds.
+AUTO_PUNISH = os.getenv("ANTIRAID_AUTO_PUNISH", "false").strip().lower() in {
+    "1", "true", "yes", "on", "да"
+}
+
 # ---------------------- КОНФИГУРАЦИЯ (на русском) ----------------------
 RAID_CONFIG = {
     "создание_каналов": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
@@ -112,6 +117,15 @@ class AntiRaid(commands.Cog):
             return
         if isinstance(actor, disnake.Member) and actor.id == guild.owner_id:
             await self.log_raid(guild, action_type, actor, "пропущено: владелец сервера")
+            return
+
+        # Start in audit-only mode. Audit-log attribution and rate thresholds can
+        # be imperfect; enable sanctions explicitly only after testing on the server.
+        if not AUTO_PUNISH:
+            await self.log_raid(
+                guild, action_type, actor,
+                "только журналирование (ANTIRAID_AUTO_PUNISH=false)"
+            )
             return
 
         if punishment == "clear_roles_kick":
