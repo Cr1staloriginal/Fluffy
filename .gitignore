@@ -181,3 +181,12 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 backups/
+
+# Runtime databases and SQLite sidecar files (never commit live data)
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
