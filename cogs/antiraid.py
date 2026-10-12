@@ -41,11 +41,11 @@ class AntiRaid(commands.Cog):
     # ---------- ОБРАБОТЧИКИ СОБЫТИЙ ----------
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel: disnake.abc.GuildChannel):
-        await self.handle_action("создание_каналов", channel.guild, None)
+        await self.handle_action("создание_каналов", channel.guild, await self.find_actor(channel.guild, disnake.AuditLogAction.channel_create, channel.id))
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before: disnake.abc.GuildChannel, after: disnake.abc.GuildChannel):
-        await self.handle_action("изменение_каналов", after.guild, None)
+        await self.handle_action("изменение_каналов", after.guild, await self.find_actor(after.guild, disnake.AuditLogAction.channel_update, after.id))
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: disnake.abc.GuildChannel):
@@ -53,7 +53,7 @@ class AntiRaid(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: disnake.Role):
-        await self.handle_action("создание_ролей", role.guild, None)
+        await self.handle_action("создание_ролей", role.guild, await self.find_actor(role.guild, disnake.AuditLogAction.role_create, role.id))
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before: disnake.Role, after: disnake.Role):
@@ -65,13 +65,25 @@ class AntiRaid(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: disnake.Guild, user: disnake.User):
-        await self.handle_action("бан", guild, None)
+        await self.handle_action("бан", guild, await self.find_actor(guild, disnake.AuditLogAction.ban, user.id))
 
     @commands.Cog.listener()
     async def on_message(self, message: disnake.Message):
         if message.author.bot or not message.guild:
             return
         await self.handle_action("спам", message.guild, message.author)
+
+    async def find_actor(self, guild: disnake.Guild, action, target_id: int):
+        """Find the audit-log actor for this exact target; fail closed if unavailable."""
+        try:
+            async for entry in guild.audit_logs(limit=6, action=action):
+                if getattr(entry.target, "id", None) != target_id:
+                    continue
+                if (disnake.utils.utcnow() - entry.created_at).total_seconds() <= 15:
+                    return entry.user
+        except (disnake.Forbidden, disnake.HTTPException):
+            return None
+        return None
 
     # ---------- ОСНОВНАЯ ЛОГИКА ----------
     async def handle_action(self, action_type: str, guild: disnake.Guild, actor):
