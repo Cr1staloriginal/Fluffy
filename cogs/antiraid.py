@@ -1,6 +1,7 @@
 import disnake
 from disnake.ext import commands, tasks
 import time
+import asyncio
 import json
 import datetime
 import os
@@ -82,15 +83,18 @@ class AntiRaid(commands.Cog):
         await self.handle_action("спам", message.guild, message.author)
 
     async def find_actor(self, guild: disnake.Guild, action, target_id: int):
-        """Find the audit-log actor for this exact target; fail closed if unavailable."""
-        try:
-            async for entry in guild.audit_logs(limit=6, action=action):
-                if getattr(entry.target, "id", None) != target_id:
-                    continue
-                if (disnake.utils.utcnow() - entry.created_at).total_seconds() <= 15:
-                    return entry.user
-        except (disnake.Forbidden, disnake.HTTPException):
-            return None
+        """Find the audit-log actor for this exact target, retrying briefly for API lag."""
+        for attempt in range(3):
+            try:
+                async for entry in guild.audit_logs(limit=10, action=action):
+                    if getattr(entry.target, "id", None) != target_id:
+                        continue
+                    if (disnake.utils.utcnow() - entry.created_at).total_seconds() <= 15:
+                        return entry.user
+            except (disnake.Forbidden, disnake.HTTPException):
+                return None
+            if attempt < 2:
+                await asyncio.sleep(0.35)
         return None
 
     # ---------- ОСНОВНАЯ ЛОГИКА ----------
@@ -156,7 +160,7 @@ class AntiRaid(commands.Cog):
                 await self.log_raid(guild, action_type, actor, "таймаут не выдан: участник не найден")
                 return
             try:
-                until = disnake.utils.utcnow() + datetime.timedelta(hours=3)
+                until = disnake.utils.utcnow() + __import__('datetime').timedelta(hours=3)
                 await member.timeout(until, reason=reason)
                 await self.log_raid(guild, action_type, member, "таймаут 3 часа выполнен")
             except (disnake.Forbidden, disnake.HTTPException) as exc:
