@@ -5,6 +5,7 @@ import random
 import os
 import asyncio
 from utils.seasons import get_current_season, get_season_name, get_local_time
+from database import get_setting, set_setting
 
 
 # ===== ЧАСОВОЙ ПОЯС =====
@@ -145,11 +146,29 @@ class AutoMessages(commands.Cog):
             "⭐ {bot} спит под одеялом из звёздочек!",
         ]
 
+
+
+    async def cog_load(self):
+        # SQLite overrides environment defaults for settings changed through slash commands.
+        saved_channel = await get_setting("auto_message_channel_id")
+        saved_interval = await get_setting("auto_message_interval")
+        if saved_channel is not None:
+            self.channel_id = self._read_int_value(saved_channel, self.channel_id, 0, 2**63 - 1)
+        if saved_interval is not None:
+            self.interval_minutes = self._read_int_value(saved_interval, self.interval_minutes, 5, 1440)
         self.auto_message.change_interval(minutes=self.interval_minutes)
         if self.enabled:
             self.auto_message.start()
         else:
-            print("[AutoMessages] Автосообщения отключены в .env")
+            print("[AutoMessages] Автосообщения отключены в настройках окружения")
+
+    @staticmethod
+    def _read_int_value(raw: str, default: int, minimum: int, maximum: int) -> int:
+        try:
+            value = int(raw)
+            return value if minimum <= value <= maximum else default
+        except (TypeError, ValueError):
+            return default
 
     def cog_unload(self):
         if self.auto_message.is_running():
@@ -256,8 +275,9 @@ class AutoMessages(commands.Cog):
     @auto_group.sub_command(name="канал", description="Установить канал для автосообщений")
     async def set_channel(self, inter: disnake.ApplicationCommandInteraction, канал: disnake.TextChannel):
         self.channel_id = канал.id
+        await set_setting("auto_message_channel_id", str(канал.id))
         await inter.response.send_message(
-            f"✅ Канал: {канал.mention}\n⚠️ Добавьте `AUTO_MESSAGE_CHANNEL_ID={канал.id}` в `.env`.",
+            f"✅ Канал: {канал.mention}\nНастройка сохранена в базе данных.",
             ephemeral=True
         )
 
@@ -268,11 +288,10 @@ class AutoMessages(commands.Cog):
         минуты: int = commands.Param(ge=5, le=1440)
     ):
         self.interval_minutes = минуты
+        await set_setting("auto_message_interval", str(минуты))
         self.auto_message.change_interval(minutes=минуты)
-        if self.auto_message.is_running():
-            self.auto_message.change_interval(minutes=минуты)
         await inter.response.send_message(
-            f"✅ Интервал: **{минуты} мин**.\n⚠️ Сохраните `AUTO_MESSAGE_INTERVAL={минуты}` в `.env`.",
+            f"✅ Интервал: **{минуты} мин**.\nНастройка сохранена в базе данных.",
             ephemeral=True
         )
 
