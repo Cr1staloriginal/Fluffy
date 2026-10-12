@@ -50,7 +50,7 @@ class AntiRaid(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: disnake.abc.GuildChannel):
-        await self.handle_action("удаление_каналов", channel.guild, channel.guild.me)
+        await self.handle_action("удаление_каналов", channel.guild, await self.find_actor(channel.guild, disnake.AuditLogAction.channel_delete, channel.id))
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: disnake.Role):
@@ -58,11 +58,11 @@ class AntiRaid(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before: disnake.Role, after: disnake.Role):
-        await self.handle_action("изменение_ролей", after.guild, after.guild.me)
+        await self.handle_action("изменение_ролей", after.guild, await self.find_actor(after.guild, disnake.AuditLogAction.role_update, after.id))
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role: disnake.Role):
-        await self.handle_action("удаление_ролей", role.guild, role.guild.me)
+        await self.handle_action("удаление_ролей", role.guild, await self.find_actor(role.guild, disnake.AuditLogAction.role_delete, role.id))
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: disnake.Guild, user: disnake.User):
