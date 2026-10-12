@@ -1,16 +1,22 @@
+import asyncio
+import logging
 import os
+import sys
+from pathlib import Path
+
 import disnake
 from disnake.ext import commands
 from dotenv import load_dotenv
-from pathlib import Path
-import sys
-import logging
-import asyncio
 
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
 
-logging.basicConfig(level=logging.INFO)
+TOKEN = os.getenv("DISCORD_TOKEN", "").strip()
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 intents = disnake.Intents.default()
@@ -20,45 +26,63 @@ intents.voice_states = True
 
 bot = commands.InteractionBot(intents=intents)
 
-# Добавляем диспетчер логов
 from utils.log_dispatcher import LogDispatcher
-bot.log_dispatcher = LogDispatcher(bot)
-
-# Импорт init_db
 from database import init_db
 
-async def load_cogs():
-    cogs_dir = Path(__file__).parent / "cogs"
-    if not cogs_dir.exists():
-        logger.warning("Папка cogs не найдена")
-        return
-    for path in sorted(cogs_dir.iterdir()):
-        if path.suffix == ".py" and not path.name.startswith("_"):
-            ext = f"cogs.{path.stem}"
-            try:
-                bot.load_extension(ext)
-                logger.info(f"Загружен ког: {path.name}")
-            except Exception as e:
-                logger.exception(f"Ошибка загрузки кога {path.name}: {e}")
+bot.log_dispatcher = LogDispatcher(bot)
+
+
+async def load_cogs() -> tuple[int, int]:
+    """Load all cogs and report failures without hiding them."""
+    cogs_dir = BASE_DIR / "cogs"
+    if not cogs_dir.is_dir():
+        logger.error("Папка cogs не найдена: %s", cogs_dir)
+        return 0, 1
+
+    loaded = failed = 0
+    for path in sorted(cogs_dir.glob("*.py")):
+        if path.name.startswith("_"):
+            continue
+        extension = f"cogs.{path.stem}"
+        try:
+            bot.load_extension(extension)
+            loaded += 1
+            logger.info("Загружен ког: %s", path.name)
+        except Exception:
+            failed += 1
+            logger.exception("Не удалось загрузить ког %s", path.name)
+
+    logger.info("Загрузка cogs завершена: %d успешно, %d с ошибками", loaded, failed)
+    return loaded, failed
+
 
 @bot.event
 async def on_ready():
-    logger.info(f"Бот {bot.user} готов!")
-    # Принудительно обновить статус при запуске
+    logger.info("Бот %s готов (ID: %s)", bot.user, bot.user.id if bot.user else "unknown")
     status_cog = bot.get_cog("StatusRotator")
     if status_cog:
         await status_cog.update_status()
 
+
 async def main():
+    if not TOKEN:
+        raise RuntimeError("DISCORD_TOKEN не задан. Добавьте его в .env или переменные окружения.")
+
     await init_db()
     logger.info("База данных инициализирована")
     await load_cogs()
-    await bot.start(TOKEN)
+    try:
+        await bot.start(TOKEN)
+    finally:
+        if not bot.is_closed():
+            await bot.close()
+
 
 if __name__ == "__main__":
-    if not TOKEN:
-        logger.error("DISCORD_TOKEN не задан.")
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Остановка по Ctrl+C")
+    except RuntimeError as exc:
+        logger.error("%s", exc)
         sys.exit(1)
-    # Используем существующий цикл, а не создаём новый через asyncio.run()
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())

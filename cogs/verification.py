@@ -236,8 +236,10 @@ class Verification(commands.Cog):
         await inter.response.send_message(embed=embed, view=view)
 
     @commands.Cog.listener()
-    async def on_interaction(self, interaction: disnake.MessageInteraction):
-        if interaction.component.custom_id == "open_verification_modal":
+    async def on_interaction(self, interaction: disnake.Interaction):
+        # Application-command and modal interactions do not expose a message component.
+        component = getattr(interaction, "component", None)
+        if component and component.custom_id == "open_verification_modal":
             await interaction.response.send_modal(VerificationModal())
 
 def setup(bot: commands.InteractionBot):

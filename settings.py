@@ -1,20 +1,14 @@
+"""Backward-compatible settings module.
+
+Importing this module does not abort the process when DISCORD_TOKEN is missing;
+main.py validates the token when the application starts.
+"""
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
-# Попытка загрузить переменные из .env если файл есть
-if Path('.env').exists():
-    try:
-        from dotenv import load_dotenv
-        load_dotenv()
-    except Exception as e:
-        print(f"[WARN] Не удалось загрузить .env: {e}")
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
 
-# Получение токена и пути к базе из переменных окружения
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-DATABASE_PATH = os.getenv('DATABASE_PATH', 'data/database.db')
-
-# Обработка ошибок: выводим ошибку, если токен не задан
-if not DISCORD_TOKEN:
-    raise RuntimeError(
-        "DISCORD_TOKEN не найден. Задайте его в .env или переменных окружения!"
-    )
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+DATABASE_PATH = os.getenv("DATABASE_PATH", "data/database.db")

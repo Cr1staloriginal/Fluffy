@@ -4,31 +4,41 @@ import datetime
 import random
 import os
 import asyncio
-from utils.seasons import get_current_season, get_season_name
+from utils.seasons import get_current_season, get_season_name, get_local_time
+from database import get_setting, set_setting
 
 
 # ===== ЧАСОВОЙ ПОЯС =====
 # По умолчанию — Москва (UTC+3). Можно изменить через переменную окружения TIMEZONE_OFFSET
-TIMEZONE_OFFSET = int(os.getenv("TIMEZONE_OFFSET", 3))  # +3 для Москвы
+try:
+    TIMEZONE_OFFSET = int(os.getenv("TIMEZONE_OFFSET", "3"))
+    if not -12 <= TIMEZONE_OFFSET <= 14:
+        raise ValueError
+except (TypeError, ValueError):
+    TIMEZONE_OFFSET = 3
 SERVER_TZ = datetime.timezone(datetime.timedelta(hours=TIMEZONE_OFFSET))
 
 
-def get_local_time() -> datetime.datetime:
-    """Возвращает текущее время с учётом часового пояса из .env."""
-    return datetime.datetime.now(SERVER_TZ)
-
-
 class AutoMessages(commands.Cog):
+    @staticmethod
+    def _read_int(name: str, default: int, minimum: int, maximum: int) -> int:
+        try:
+            value = int(os.getenv(name, str(default)))
+            return value if minimum <= value <= maximum else default
+        except (TypeError, ValueError):
+            return default
+
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
-        self.channel_id = int(os.getenv("AUTO_MESSAGE_CHANNEL_ID", 0))
-        self.interval_minutes = int(os.getenv("AUTO_MESSAGE_INTERVAL", 60))
-        self.min_delay = int(os.getenv("AUTO_MESSAGE_MIN_DELAY", 0))
-        self.enabled = os.getenv("AUTO_MESSAGE_ENABLED", "true").lower() == "true"
+        self.channel_id = self._read_int("AUTO_MESSAGE_CHANNEL_ID", 0, 0, 2**63 - 1)
+        self.interval_minutes = self._read_int("AUTO_MESSAGE_INTERVAL", 60, 5, 1440)
+        self.min_delay = self._read_int("AUTO_MESSAGE_MIN_DELAY", 0, 0, 1440)
+        self.enabled = os.getenv("AUTO_MESSAGE_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+        self._last_send_error = None
 
         # Часы ночи (по локальному времени)
-        self.night_start = int(os.getenv("NIGHT_START_HOUR", 23))
-        self.night_end = int(os.getenv("NIGHT_END_HOUR", 6))
+        self.night_start = self._read_int("NIGHT_START_HOUR", 23, 0, 23)
+        self.night_end = self._read_int("NIGHT_END_HOUR", 6, 0, 23)
 
         # ===== ДНЕВНЫЕ СООБЩЕНИЯ =====
         self.messages_day = {
@@ -136,10 +146,29 @@ class AutoMessages(commands.Cog):
             "⭐ {bot} спит под одеялом из звёздочек!",
         ]
 
+
+
+    async def cog_load(self):
+        # SQLite overrides environment defaults for settings changed through slash commands.
+        saved_channel = await get_setting("auto_message_channel_id")
+        saved_interval = await get_setting("auto_message_interval")
+        if saved_channel is not None:
+            self.channel_id = self._read_int_value(saved_channel, self.channel_id, 0, 2**63 - 1)
+        if saved_interval is not None:
+            self.interval_minutes = self._read_int_value(saved_interval, self.interval_minutes, 5, 1440)
+        self.auto_message.change_interval(minutes=self.interval_minutes)
         if self.enabled:
             self.auto_message.start()
         else:
-            print("[AutoMessages] Автосообщения отключены в .env")
+            print("[AutoMessages] Автосообщения отключены в настройках окружения")
+
+    @staticmethod
+    def _read_int_value(raw: str, default: int, minimum: int, maximum: int) -> int:
+        try:
+            value = int(raw)
+            return value if minimum <= value <= maximum else default
+        except (TypeError, ValueError):
+            return default
 
     def cog_unload(self):
         if self.auto_message.is_running():
@@ -158,13 +187,19 @@ class AutoMessages(commands.Cog):
 
     @tasks.loop(minutes=60)
     async def auto_message(self):
-        if self.auto_message.minutes != self.interval_minutes:
-            self.auto_message.change_interval(minutes=self.interval_minutes)
-
+        if not self.channel_id:
+            self._last_send_error = "AUTO_MESSAGE_CHANNEL_ID не настроен"
+            return False
         channel = self.bot.get_channel(self.channel_id)
-        if not channel:
-            print(f"[AutoMessages] Канал {self.channel_id} не найден")
-            return
+        if channel is None:
+            try:
+                channel = await self.bot.fetch_channel(self.channel_id)
+            except (disnake.NotFound, disnake.Forbidden, disnake.HTTPException):
+                self._last_send_error = f"Канал {self.channel_id} недоступен"
+                return False
+        if not hasattr(channel, "send"):
+            self._last_send_error = "Указанный канал не поддерживает отправку сообщений"
+            return False
 
         now = get_local_time()
 
@@ -179,9 +214,13 @@ class AutoMessages(commands.Cog):
 
         try:
             await channel.send(text)
+            self._last_send_error = None
             print(f"[AutoMessages] ({now.strftime('%H:%M %d.%m')}) Отправлено: {text}")
-        except Exception as e:
+            return True
+        except (disnake.Forbidden, disnake.HTTPException) as e:
+            self._last_send_error = str(e)
             print(f"[AutoMessages] Ошибка отправки: {e}")
+            return False
 
     @auto_message.before_loop
     async def before_auto_message(self):
@@ -227,14 +266,18 @@ class AutoMessages(commands.Cog):
     @auto_group.sub_command(name="отправить", description="Отправить автосообщение прямо сейчас (тест)")
     async def send_now(self, inter: disnake.ApplicationCommandInteraction):
         await inter.response.defer(ephemeral=True)
-        await self.auto_message()
-        await inter.edit_original_response(content="✅ Сообщение отправлено!")
+        success = await self.auto_message()
+        if success:
+            await inter.edit_original_response(content="✅ Сообщение отправлено!")
+        else:
+            await inter.edit_original_response(content="❌ Не удалось отправить сообщение: " + (self._last_send_error or "неизвестная ошибка"))
 
     @auto_group.sub_command(name="канал", description="Установить канал для автосообщений")
     async def set_channel(self, inter: disnake.ApplicationCommandInteraction, канал: disnake.TextChannel):
         self.channel_id = канал.id
+        await set_setting("auto_message_channel_id", str(канал.id))
         await inter.response.send_message(
-            f"✅ Канал: {канал.mention}\n⚠️ Добавьте `AUTO_MESSAGE_CHANNEL_ID={канал.id}` в `.env`.",
+            f"✅ Канал: {канал.mention}\nНастройка сохранена в базе данных.",
             ephemeral=True
         )
 
@@ -245,10 +288,10 @@ class AutoMessages(commands.Cog):
         минуты: int = commands.Param(ge=5, le=1440)
     ):
         self.interval_minutes = минуты
-        if self.auto_message.is_running():
-            self.auto_message.change_interval(minutes=минуты)
+        await set_setting("auto_message_interval", str(минуты))
+        self.auto_message.change_interval(minutes=минуты)
         await inter.response.send_message(
-            f"✅ Интервал: **{минуты} мин**.\n⚠️ Сохраните `AUTO_MESSAGE_INTERVAL={минуты}` в `.env`.",
+            f"✅ Интервал: **{минуты} мин**.\nНастройка сохранена в базе данных.",
             ephemeral=True
         )
 

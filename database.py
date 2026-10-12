@@ -4,8 +4,11 @@ import os
 import datetime
 from typing import Optional
 
+BASE_DIR = Path(__file__).resolve().parent
 DATABASE_PATH = os.getenv("DATABASE_PATH", "data/database.db")
-DB_PATH = Path(DATABASE_PATH)
+DB_PATH = Path(DATABASE_PATH).expanduser()
+if not DB_PATH.is_absolute():
+    DB_PATH = BASE_DIR / DB_PATH
 
 
 async def init_db() -> None:
@@ -55,6 +58,13 @@ async def init_db() -> None:
                 await db.execute("ALTER TABLE phrases ADD COLUMN season TEXT DEFAULT 'default'")
 
         # ===== Остальные таблицы =====
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS bot_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -209,17 +219,27 @@ async def clear_phrases_by_season(season: str) -> None:
 
 
 # ========== ФУНКЦИИ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ ==========
+async def ensure_user(user_id: int, username: str = "", display_name: str = "") -> None:
+    """Create or refresh a user stats row."""
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("""INSERT INTO users (user_id, username, display_name) VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET username=excluded.username,
+            display_name=excluded.display_name, last_seen=CURRENT_TIMESTAMP""",
+            (user_id, username, display_name))
+        await db.commit()
+
+
 async def update_user_display_name(user_id: int, display_name: str) -> None:
     async with aiosqlite.connect(str(DB_PATH)) as db:
-        await db.execute(
-            "UPDATE users SET display_name = ?, last_seen = CURRENT_TIMESTAMP WHERE user_id = ?",
-            (display_name, user_id)
-        )
+        await db.execute("""INSERT INTO users (user_id, display_name) VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name,
+            last_seen=CURRENT_TIMESTAMP""", (user_id, display_name))
         await db.commit()
 
 
 async def add_coins(user_id: int, amount: int) -> None:
     async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
         await db.execute("UPDATE users SET points = points + ? WHERE user_id = ?", (amount, user_id))
         await db.commit()
 
@@ -233,30 +253,35 @@ async def get_coins(user_id: int) -> int:
 
 async def set_coins(user_id: int, amount: int) -> None:
     async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
         await db.execute("UPDATE users SET points = ? WHERE user_id = ?", (amount, user_id))
         await db.commit()
 
 
 async def increment_messages(user_id: int, delta: int = 1) -> None:
     async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
         await db.execute("UPDATE users SET messages_sent = messages_sent + ? WHERE user_id = ?", (delta, user_id))
         await db.commit()
 
 
 async def add_voice_minutes(user_id: int, minutes: int) -> None:
     async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
         await db.execute("UPDATE users SET voice_minutes = voice_minutes + ? WHERE user_id = ?", (minutes, user_id))
         await db.commit()
 
 
 async def add_cookies(user_id: int, delta: int = 1) -> None:
     async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
         await db.execute("UPDATE users SET cookies_received = cookies_received + ? WHERE user_id = ?", (delta, user_id))
         await db.commit()
 
 
 async def set_voice_join_time(user_id: int, timestamp: Optional[float]) -> None:
     async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
         await db.execute("UPDATE users SET voice_join_time = ? WHERE user_id = ?", (timestamp, user_id))
         await db.commit()
 
@@ -384,5 +409,23 @@ async def log_event(event_type: str, payload: str) -> None:
         await db.execute(
             "INSERT INTO logs (event_type, payload) VALUES (?, ?)",
             (event_type, payload)
+        )
+        await db.commit()
+
+# ========== PERSISTENT BOT SETTINGS ==========
+async def get_setting(key: str, default: Optional[str] = None) -> Optional[str]:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute("SELECT value FROM bot_settings WHERE key = ?", (key,)) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else default
+
+
+async def set_setting(key: str, value: str) -> None:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute(
+            """INSERT INTO bot_settings (key, value) VALUES (?, ?)
+               ON CONFLICT(key) DO UPDATE SET value=excluded.value,
+               updated_at=CURRENT_TIMESTAMP""",
+            (key, str(value)),
         )
         await db.commit()
