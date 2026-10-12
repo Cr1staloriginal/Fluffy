@@ -18,14 +18,14 @@ AUTO_PUNISH = os.getenv("ANTIRAID_AUTO_PUNISH", "true").strip().lower() in {
 
 # ---------------------- КОНФИГУРАЦИЯ (на русском) ----------------------
 RAID_CONFIG = {
-    "создание_каналов": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
-    "изменение_каналов": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
+    "создание_каналов": {"limit": 5, "time_window": 10, "punishment": "kick"},
+    "изменение_каналов": {"limit": 5, "time_window": 10, "punishment": "kick"},
     # Five channel deletions in one second is treated as an urgent raid.
     "удаление_каналов": {"limit": 5, "time_window": 1, "punishment": "kick"},
-    "создание_ролей": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
-    "изменение_ролей": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
-    "удаление_ролей": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
-    "бан": {"limit": 5, "time_window": 10, "punishment": "clear_roles_kick"},
+    "создание_ролей": {"limit": 5, "time_window": 10, "punishment": "kick"},
+    "изменение_ролей": {"limit": 5, "time_window": 10, "punishment": "kick"},
+    "удаление_ролей": {"limit": 5, "time_window": 10, "punishment": "kick"},
+    "бан": {"limit": 5, "time_window": 10, "punishment": "kick"},
     "спам": {"limit": 10, "time_window": 5, "punishment": "timeout_3h"}
 }
 
@@ -413,10 +413,10 @@ class AntiRaid(commands.Cog):
                                            "создание_ролей", "изменение_ролей", "удаление_ролей", "бан", "спам"]),
         лимит: int = commands.Param(description="Количество действий до срабатывания (0 = выкл)"),
         окно: int = commands.Param(description="Временное окно в секундах"),
-        наказание: str = commands.Param(choices=["очистка_ролей_кик", "таймаут_3ч"])
+        наказание: str = commands.Param(choices=["кик", "таймаут_3ч"])
     ):
         punishment_map = {
-            "очистка_ролей_кик": "clear_roles_kick",
+            "кик": "kick",
             "таймаут_3ч": "timeout_3h"
         }
         self.config[тип] = {"limit": лимит, "time_window": окно, "punishment": punishment_map[наказание]}
@@ -432,7 +432,8 @@ class AntiRaid(commands.Cog):
         for action, cfg in self.config.items():
             status = "✅ Вкл" if cfg["limit"] > 0 else "❌ Выкл"
             punishment_map = {
-                "clear_roles_kick": "очистка_ролей + кик",
+                "kick": "кик",
+                "clear_roles_kick": "кик",
                 "timeout_3h": "таймаут 3 часа"
             }
             embed.add_field(
