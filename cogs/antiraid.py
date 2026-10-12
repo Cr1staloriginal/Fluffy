@@ -37,6 +37,7 @@ class AntiRaid(commands.Cog):
             "спам": defaultdict(deque),
         }
         self.raid_active = False
+        self.last_triggered = defaultdict(dict)
 
     # ---------- ОБРАБОТЧИКИ СОБЫТИЙ ----------
     @commands.Cog.listener()
@@ -101,10 +102,18 @@ class AntiRaid(commands.Cog):
         while tracker and now - tracker[0] > config["time_window"]:
             tracker.popleft()
 
-        if len(tracker) >= config["limit"]:
+        last = self.last_triggered[guild.id].get(action_type, 0)
+        if len(tracker) >= config["limit"] and now - last >= config["time_window"]:
+            self.last_triggered[guild.id][action_type] = now
             await self.apply_punishment(guild, actor, config["punishment"], action_type)
 
     async def apply_punishment(self, guild: disnake.Guild, actor, punishment: str, action_type: str):
+        if actor is None or (guild.me and actor.id == guild.me.id):
+            return
+        if isinstance(actor, disnake.Member) and actor.id == guild.owner_id:
+            await self.log_raid(guild, action_type, actor, "пропущено: владелец сервера")
+            return
+
         if punishment == "clear_roles_kick":
             if isinstance(actor, disnake.Member):
                 try:
@@ -115,12 +124,6 @@ class AntiRaid(commands.Cog):
             elif isinstance(actor, disnake.User):
                 try:
                     await guild.ban(actor, reason=f"Анти-рейд: {action_type}")
-                except:
-                    pass
-
-            if actor == guild.me:
-                try:
-                    await guild.leave()
                 except:
                     pass
 
