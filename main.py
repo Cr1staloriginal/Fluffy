@@ -24,15 +24,11 @@ intents.message_content = True
 intents.members = True
 intents.voice_states = True
 
-bot = commands.InteractionBot(intents=intents)
-
 from utils.log_dispatcher import LogDispatcher
 from database import init_db
 
-bot.log_dispatcher = LogDispatcher(bot)
 
-
-async def load_cogs() -> tuple[int, int]:
+async def load_cogs(bot: commands.InteractionBot) -> tuple[int, int]:
     """Load all cogs and report failures without hiding them."""
     cogs_dir = BASE_DIR / "cogs"
     if not cogs_dir.is_dir():
@@ -56,21 +52,27 @@ async def load_cogs() -> tuple[int, int]:
     return loaded, failed
 
 
-@bot.event
-async def on_ready():
-    logger.info("Бот %s готов (ID: %s)", bot.user, bot.user.id if bot.user else "unknown")
-    status_cog = bot.get_cog("StatusRotator")
-    if status_cog:
-        await status_cog.update_status()
-
-
 async def main():
     if not TOKEN:
         raise RuntimeError("DISCORD_TOKEN не задан. Добавьте его в .env или переменные окружения.")
 
+    # Create the Discord client only after asyncio.run() has started its event loop.
+    # Creating it at module import time can bind disnake to a different loop,
+    # causing "The future belongs to a different loop" during gateway startup.
+    bot = commands.InteractionBot(intents=intents)
+    bot.log_dispatcher = LogDispatcher(bot)
+
+    @bot.event
+    async def on_ready():
+        logger.info("Бот %s готов (ID: %s)", bot.user, bot.user.id if bot.user else "unknown")
+        status_cog = bot.get_cog("StatusRotator")
+        if status_cog:
+            await status_cog.update_status()
+
     await init_db()
     logger.info("База данных инициализирована")
-    await load_cogs()
+    await load_cogs(bot)
+
     try:
         await bot.start(TOKEN)
     finally:
