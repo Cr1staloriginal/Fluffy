@@ -2,6 +2,7 @@ import disnake
 from disnake.ext import commands, tasks
 import time
 import json
+import datetime
 import os
 from collections import deque, defaultdict
 from datetime import datetime
@@ -40,11 +41,11 @@ class AntiRaid(commands.Cog):
     # ---------- ОБРАБОТЧИКИ СОБЫТИЙ ----------
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel: disnake.abc.GuildChannel):
-        await self.handle_action("создание_каналов", channel.guild, channel.guild.me)
+        await self.handle_action("создание_каналов", channel.guild, None)
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before: disnake.abc.GuildChannel, after: disnake.abc.GuildChannel):
-        await self.handle_action("изменение_каналов", after.guild, after.guild.me)
+        await self.handle_action("изменение_каналов", after.guild, None)
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: disnake.abc.GuildChannel):
@@ -52,7 +53,7 @@ class AntiRaid(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: disnake.Role):
-        await self.handle_action("создание_ролей", role.guild, role.guild.me)
+        await self.handle_action("создание_ролей", role.guild, None)
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before: disnake.Role, after: disnake.Role):
@@ -64,7 +65,7 @@ class AntiRaid(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: disnake.Guild, user: disnake.User):
-        await self.handle_action("бан", guild, guild.me)
+        await self.handle_action("бан", guild, None)
 
     @commands.Cog.listener()
     async def on_message(self, message: disnake.Message):
@@ -75,6 +76,9 @@ class AntiRaid(commands.Cog):
     # ---------- ОСНОВНАЯ ЛОГИКА ----------
     async def handle_action(self, action_type: str, guild: disnake.Guild, actor):
         config = self.config.get(action_type)
+        # Never attribute an event to the bot itself. Actor attribution requires audit-log access.
+        if actor is None or getattr(actor, "bot", False):
+            return
         if not config or config.get("limit", 0) == 0:
             return
 
@@ -111,7 +115,7 @@ class AntiRaid(commands.Cog):
         elif punishment == "timeout_3h":
             if isinstance(actor, disnake.Member):
                 try:
-                    until = disnake.utils.utcnow() + disnake.utils.timedelta(hours=3)
+                    until = disnake.utils.utcnow() + datetime.timedelta(hours=3)
                     await actor.timeout(until, reason="Анти-рейд: спам")
                 except:
                     pass
@@ -119,7 +123,7 @@ class AntiRaid(commands.Cog):
         await self.log_raid(guild, action_type, actor, punishment)
 
     async def log_raid(self, guild: disnake.Guild, action_type: str, actor, punishment: str):
-        channel = guild.system_channel or guild.text_channels[0]
+        channel = guild.system_channel or next(iter(guild.text_channels), None)
         if channel:
             embed = disnake.Embed(
                 title="🚨 Сработала анти-рейд система!",
@@ -226,6 +230,11 @@ class AntiRaid(commands.Cog):
             files.sort(reverse=True)
             имя_файла = files[0]
 
+        # Only allow backups created for this guild; reject traversal and arbitrary file paths.
+        prefix = f"backup_{guild.id}_"
+        if os.path.basename(имя_файла) != имя_файла or not имя_файла.startswith(prefix) or not имя_файла.endswith(".json"):
+            await inter.edit_original_response(content="❌ Допускаются только файлы бэкапа этого сервера.")
+            return
         filepath = os.path.join(backup_dir, имя_файла)
         if not os.path.exists(filepath):
             await inter.edit_original_response("❌ Файл бэкапа не найден.")
