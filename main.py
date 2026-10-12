@@ -36,6 +36,10 @@ async def load_cogs(bot: commands.InteractionBot) -> tuple[int, int]:
         return 0, 1
 
     loaded = failed = 0
+    failed_names: set[str] = set()
+    available_names = {
+        path.stem for path in cogs_dir.glob("*.py") if not path.name.startswith("_")
+    }
     for path in sorted(cogs_dir.glob("*.py")):
         if path.name.startswith("_"):
             continue
@@ -46,9 +50,26 @@ async def load_cogs(bot: commands.InteractionBot) -> tuple[int, int]:
             logger.info("Загружен ког: %s", path.name)
         except Exception:
             failed += 1
+            failed_names.add(path.stem)
             logger.exception("Не удалось загрузить ког %s", path.name)
 
     logger.info("Загрузка cogs завершена: %d успешно, %d с ошибками", loaded, failed)
+
+    # Core moderation and member-support cogs must load before the bot starts.
+    required_cogs = {"automod", "verification", "logs", "tickets"}
+    missing = required_cogs - available_names
+    failed_required = required_cogs & failed_names
+    if missing or failed_required:
+        details = []
+        if missing:
+            details.append("не найдены: " + ", ".join(sorted(missing)))
+        if failed_required:
+            details.append("не загрузились: " + ", ".join(sorted(failed_required)))
+        raise RuntimeError(
+            "Критические модули Fluffy недоступны (" + "; ".join(details) +
+            "). Запуск отменён, чтобы бот не работал с отключённой защитой."
+        )
+
     return loaded, failed
 
 
