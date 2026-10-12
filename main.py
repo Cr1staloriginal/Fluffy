@@ -32,8 +32,7 @@ async def load_cogs(bot: commands.InteractionBot) -> tuple[int, int]:
     """Load all cogs and report failures without hiding them."""
     cogs_dir = BASE_DIR / "cogs"
     if not cogs_dir.is_dir():
-        logger.error("Папка cogs не найдена: %s", cogs_dir)
-        return 0, 1
+        raise RuntimeError(f"Папка cogs не найдена: {cogs_dir}. Запуск Fluffy отменён.")
 
     loaded = failed = 0
     failed_names: set[str] = set()
