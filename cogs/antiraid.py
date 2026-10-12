@@ -96,15 +96,15 @@ class AntiRaid(commands.Cog):
             return
 
         now = time.time()
-        tracker = self.trackers[action_type][guild.id]
+        tracker = self.trackers[action_type][(guild.id, actor.id)]
         tracker.append(now)
 
         while tracker and now - tracker[0] > config["time_window"]:
             tracker.popleft()
 
-        last = self.last_triggered[guild.id].get(action_type, 0)
+        last = self.last_triggered[(guild.id, actor.id)].get(action_type, 0)
         if len(tracker) >= config["limit"] and now - last >= config["time_window"]:
-            self.last_triggered[guild.id][action_type] = now
+            self.last_triggered[(guild.id, actor.id)][action_type] = now
             await self.apply_punishment(guild, actor, config["punishment"], action_type)
 
     async def apply_punishment(self, guild: disnake.Guild, actor, punishment: str, action_type: str):
