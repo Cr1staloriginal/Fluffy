@@ -127,6 +127,27 @@ async def init_db() -> None:
                 PRIMARY KEY (suggestion_id, user_id)
             )
         """)
+        # Per-server configuration; keys are isolated by guild_id.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS guild_settings (
+                guild_id INTEGER NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (guild_id, key)
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS custom_commands (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                response TEXT NOT NULL,
+                creator_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(guild_id, name)
+            )
+        """)
         await db.commit()
 
     await load_phrases_from_file()
@@ -429,3 +450,92 @@ async def set_setting(key: str, value: str) -> None:
             (key, str(value)),
         )
         await db.commit()
+
+
+# ========== PER-GUILD SETTINGS ==========
+async def get_guild_setting(guild_id: int, key: str, default: Optional[str] = None) -> Optional[str]:
+    """Get a setting scoped to one Discord server."""
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute(
+            "SELECT value FROM guild_settings WHERE guild_id = ? AND key = ?",
+            (int(guild_id), key),
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else default
+
+
+async def set_guild_setting(guild_id: int, key: str, value: str) -> None:
+    """Create or update a setting scoped to one Discord server."""
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute(
+            """INSERT INTO guild_settings (guild_id, key, value) VALUES (?, ?, ?)
+               ON CONFLICT(guild_id, key) DO UPDATE SET
+               value = excluded.value, updated_at = CURRENT_TIMESTAMP""",
+            (int(guild_id), key, str(value)),
+        )
+        await db.commit()
+
+
+async def get_guild_settings(guild_id: int) -> dict[str, str]:
+    """Return all settings configured for a Discord server."""
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute(
+            "SELECT key, value FROM guild_settings WHERE guild_id = ? ORDER BY key",
+            (int(guild_id),),
+        ) as cur:
+            return {key: value for key, value in await cur.fetchall()}
+
+
+async def delete_guild_setting(guild_id: int, key: str) -> bool:
+    """Delete one setting for a Discord server."""
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        cursor = await db.execute(
+            "DELETE FROM guild_settings WHERE guild_id = ? AND key = ?",
+            (int(guild_id), key),
+        )
+        await db.commit()
+        return cursor.rowcount > 0
+
+
+# ========== CUSTOM COMMANDS ==========
+async def create_custom_command(guild_id: int, name: str, response: str, creator_id: int) -> bool:
+    """Create a server-specific custom response command. Returns False if name exists."""
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        try:
+            await db.execute(
+                "INSERT INTO custom_commands (guild_id, name, response, creator_id) VALUES (?, ?, ?, ?)",
+                (int(guild_id), name.lower(), response, int(creator_id)),
+            )
+            await db.commit()
+            return True
+        except aiosqlite.IntegrityError:
+            return False
+
+
+async def get_custom_command(guild_id: int, name: str) -> Optional[str]:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute(
+            "SELECT response FROM custom_commands WHERE guild_id = ? AND name = ?",
+            (int(guild_id), name.lower()),
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else None
+
+
+async def list_custom_commands(guild_id: int) -> list[tuple[str, str]]:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute(
+            "SELECT name, response FROM custom_commands WHERE guild_id = ? ORDER BY name",
+            (int(guild_id),),
+        ) as cur:
+            return await cur.fetchall()
+
+
+async def delete_custom_command(guild_id: int, name: str) -> bool:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        cursor = await db.execute(
+            "DELETE FROM custom_commands WHERE guild_id = ? AND name = ?",
+            (int(guild_id), name.lower()),
+        )
+        await db.commit()
+        return cursor.rowcount > 0
