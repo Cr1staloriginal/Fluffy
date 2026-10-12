@@ -9,22 +9,35 @@ from utils.seasons import get_current_season, get_season_name, get_local_time
 
 # ===== ЧАСОВОЙ ПОЯС =====
 # По умолчанию — Москва (UTC+3). Можно изменить через переменную окружения TIMEZONE_OFFSET
-TIMEZONE_OFFSET = int(os.getenv("TIMEZONE_OFFSET", 3))  # +3 для Москвы
+try:
+    TIMEZONE_OFFSET = int(os.getenv("TIMEZONE_OFFSET", "3"))
+    if not -12 <= TIMEZONE_OFFSET <= 14:
+        raise ValueError
+except (TypeError, ValueError):
+    TIMEZONE_OFFSET = 3
 SERVER_TZ = datetime.timezone(datetime.timedelta(hours=TIMEZONE_OFFSET))
 
 
 class AutoMessages(commands.Cog):
+    @staticmethod
+    def _read_int(name: str, default: int, minimum: int, maximum: int) -> int:
+        try:
+            value = int(os.getenv(name, str(default)))
+            return value if minimum <= value <= maximum else default
+        except (TypeError, ValueError):
+            return default
+
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
-        self.channel_id = int(os.getenv("AUTO_MESSAGE_CHANNEL_ID", 0))
-        self.interval_minutes = int(os.getenv("AUTO_MESSAGE_INTERVAL", 60))
-        self.min_delay = int(os.getenv("AUTO_MESSAGE_MIN_DELAY", 0))
+        self.channel_id = self._read_int("AUTO_MESSAGE_CHANNEL_ID", 0, 0, 2**63 - 1)
+        self.interval_minutes = self._read_int("AUTO_MESSAGE_INTERVAL", 60, 5, 1440)
+        self.min_delay = self._read_int("AUTO_MESSAGE_MIN_DELAY", 0, 0, 1440)
         self.enabled = os.getenv("AUTO_MESSAGE_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
         self._last_send_error = None
 
         # Часы ночи (по локальному времени)
-        self.night_start = int(os.getenv("NIGHT_START_HOUR", 23))
-        self.night_end = int(os.getenv("NIGHT_END_HOUR", 6))
+        self.night_start = self._read_int("NIGHT_START_HOUR", 23, 0, 23)
+        self.night_end = self._read_int("NIGHT_END_HOUR", 6, 0, 23)
 
         # ===== ДНЕВНЫЕ СООБЩЕНИЯ =====
         self.messages_day = {
