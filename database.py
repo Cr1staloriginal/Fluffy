@@ -59,6 +59,13 @@ async def init_db() -> None:
 
         # ===== Остальные таблицы =====
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS bot_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 event_type TEXT,
@@ -402,5 +409,23 @@ async def log_event(event_type: str, payload: str) -> None:
         await db.execute(
             "INSERT INTO logs (event_type, payload) VALUES (?, ?)",
             (event_type, payload)
+        )
+        await db.commit()
+
+# ========== PERSISTENT BOT SETTINGS ==========
+async def get_setting(key: str, default: Optional[str] = None) -> Optional[str]:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute("SELECT value FROM bot_settings WHERE key = ?", (key,)) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else default
+
+
+async def set_setting(key: str, value: str) -> None:
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute(
+            """INSERT INTO bot_settings (key, value) VALUES (?, ?)
+               ON CONFLICT(key) DO UPDATE SET value=excluded.value,
+               updated_at=CURRENT_TIMESTAMP""",
+            (key, str(value)),
         )
         await db.commit()
