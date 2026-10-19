@@ -2,7 +2,7 @@
 
 > Многофункциональный Discord-бот для модерации, веселья и уюта на вашем сервере.
 
-[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/oauth2/authorize?client_id=1445630419390431282&permissions=8&scope=bot%20applications.commands)
+[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/oauth2/authorize?client_id=1445630419390431282&permissions=0&scope=bot%20applications.commands)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 ## 📄 Лицензия
 
@@ -102,3 +102,23 @@ cd Fluffy
 ## 🧪 Проверки кода
 
 GitHub Actions запускает компиляцию Python и импорт модулей при push и pull request. Это помогает ловить синтаксические ошибки и ошибки импорта, но не заменяет тестирование в реальном Discord-сервере.
+
+
+## 🛡️ Настройка анти-рейда
+
+- Удаление **5 каналов за 1 секунду** одним участником/ботом считается рейдом.
+- Fluffy ищет виновника в Discord Audit Log с короткими повторами на случай задержки журнала; окно измеряется от момента события, а не от завершения поиска.
+- Автоматическое наказание управляется переменной `ANTIRAID_AUTO_PUNISH`: `false` — только уведомление в журнале, `true` — попытка кикнуть найденного участника/бота.
+- Для автоматического режима выдай Fluffy разрешения **View Audit Log** и **Kick Members**. Роль Fluffy должна находиться выше роли нарушителя. Discord не позволит кикнуть владельца сервера или участника с более высокой ролью.
+- Если виновник не найден в Audit Log или прав не хватает, бот не угадывает виновника и не применяет наказание к случайному участнику.
+- Ссылка приглашения выше больше не запрашивает `Administrator`. Выдай только права, нужные включённым функциям.
+
+### Обновление на Bothost
+
+1. Сначала сохрани копию текущей базы SQLite и текущего `.env`.
+2. Обнови код из `main`.
+3. В переменных окружения Bothost выставь `ANTIRAID_AUTO_PUNISH=true`, если нужен автоматический кик; переменная `false` оставляет только журналирование.
+4. Проверь, что включены **Server Members Intent** и **Message Content Intent** в Discord Developer Portal, а у Fluffy есть доступ к Audit Log и Kick Members.
+5. Перезапусти бота и проверь с безопасным тестовым сценарием на отдельном тестовом сервере. Не проверяй массовое удаление на основном сервере.
+
+> Автоматическое наказание зависит от задержки Discord Audit Log, сетевого соединения и иерархии ролей. Ни один бот не может гарантировать остановку действий до того, как Discord доставит событие.
