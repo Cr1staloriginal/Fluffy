@@ -47,31 +47,45 @@ class AntiRaid(commands.Cog):
     # ---------- ОБРАБОТЧИКИ СОБЫТИЙ ----------
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel: disnake.abc.GuildChannel):
-        await self.handle_action("создание_каналов", channel.guild, await self.find_actor(channel.guild, disnake.AuditLogAction.channel_create, channel.id))
+        observed_at = time.time()
+        actor = await self.find_actor(channel.guild, disnake.AuditLogAction.channel_create, channel.id)
+        await self.handle_action("создание_каналов", channel.guild, actor, observed_at=observed_at)
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before: disnake.abc.GuildChannel, after: disnake.abc.GuildChannel):
-        await self.handle_action("изменение_каналов", after.guild, await self.find_actor(after.guild, disnake.AuditLogAction.channel_update, after.id))
+        observed_at = time.time()
+        actor = await self.find_actor(after.guild, disnake.AuditLogAction.channel_update, after.id)
+        await self.handle_action("изменение_каналов", after.guild, actor, observed_at=observed_at)
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: disnake.abc.GuildChannel):
-        await self.handle_action("удаление_каналов", channel.guild, await self.find_actor(channel.guild, disnake.AuditLogAction.channel_delete, channel.id))
+        observed_at = time.time()
+        actor = await self.find_actor(channel.guild, disnake.AuditLogAction.channel_delete, channel.id)
+        await self.handle_action("удаление_каналов", channel.guild, actor, observed_at=observed_at)
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: disnake.Role):
-        await self.handle_action("создание_ролей", role.guild, await self.find_actor(role.guild, disnake.AuditLogAction.role_create, role.id))
+        observed_at = time.time()
+        actor = await self.find_actor(role.guild, disnake.AuditLogAction.role_create, role.id)
+        await self.handle_action("создание_ролей", role.guild, actor, observed_at=observed_at)
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before: disnake.Role, after: disnake.Role):
-        await self.handle_action("изменение_ролей", after.guild, await self.find_actor(after.guild, disnake.AuditLogAction.role_update, after.id))
+        observed_at = time.time()
+        actor = await self.find_actor(after.guild, disnake.AuditLogAction.role_update, after.id)
+        await self.handle_action("изменение_ролей", after.guild, actor, observed_at=observed_at)
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role: disnake.Role):
-        await self.handle_action("удаление_ролей", role.guild, await self.find_actor(role.guild, disnake.AuditLogAction.role_delete, role.id))
+        observed_at = time.time()
+        actor = await self.find_actor(role.guild, disnake.AuditLogAction.role_delete, role.id)
+        await self.handle_action("удаление_ролей", role.guild, actor, observed_at=observed_at)
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: disnake.Guild, user: disnake.User):
-        await self.handle_action("бан", guild, await self.find_actor(guild, disnake.AuditLogAction.ban, user.id))
+        observed_at = time.time()
+        actor = await self.find_actor(guild, disnake.AuditLogAction.ban, user.id)
+        await self.handle_action("бан", guild, actor, observed_at=observed_at)
 
     @commands.Cog.listener()
     async def on_message(self, message: disnake.Message):
@@ -96,7 +110,7 @@ class AntiRaid(commands.Cog):
         return None
 
     # ---------- ОСНОВНАЯ ЛОГИКА ----------
-    async def handle_action(self, action_type: str, guild: disnake.Guild, actor):
+    async def handle_action(self, action_type: str, guild: disnake.Guild, actor, observed_at: float | None = None):
         config = self.config.get(action_type)
         # Bot accounts can be attackers too; only ignore missing actors and Fluffy itself.
         if actor is None or (guild.me and getattr(actor, "id", None) == guild.me.id):
@@ -104,7 +118,7 @@ class AntiRaid(commands.Cog):
         if not config or config.get("limit", 0) == 0:
             return
 
-        now = time.time()
+        now = observed_at if observed_at is not None else time.time()
         tracker = self.trackers[action_type][(guild.id, actor.id)]
         tracker.append(now)
 
