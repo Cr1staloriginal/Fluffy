@@ -49,12 +49,15 @@ class TemporaryVoiceRooms(commands.Cog):
                 logger.exception("Не удалось создать временную комнату для участника %s", member.id)
                 return
 
-        # Delete an empty room created by this feature after its last member leaves.
+        # Delete only an empty temporary room. The lobby must never be deleted,
+        # even if its name accidentally starts with the temporary-room prefix.
         old_channel = before.channel
         if (
             old_channel
+            and old_channel.id != self.lobby_id
             and isinstance(old_channel, disnake.VoiceChannel)
             and old_channel.name.startswith(self.prefix)
+            and (not self.category_id or old_channel.category_id == self.category_id)
             and not old_channel.members
         ):
             try:
