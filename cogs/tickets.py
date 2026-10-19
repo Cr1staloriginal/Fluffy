@@ -190,7 +190,8 @@ class Tickets(commands.Cog):
 
     @commands.slash_command(
         name="setup_tickets",
-        description="Отправить embed с кнопкой для создания тикетов в текущий канал"
+        description="Отправить embed с кнопкой для создания тикетов в текущий канал",
+        default_member_permissions=disnake.Permissions(administrator=True),
     )
     @commands.has_permissions(administrator=True)
     async def setup_tickets(self, inter: disnake.ApplicationCommandInteraction):
