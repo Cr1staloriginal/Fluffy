@@ -435,10 +435,10 @@ class AntiRaid(commands.Cog):
                                            "создание_ролей", "изменение_ролей", "удаление_ролей", "бан", "спам"]),
         лимит: int = commands.Param(description="Количество действий до срабатывания (0 = выкл)"),
         окно: int = commands.Param(description="Временное окно в секундах"),
-        наказание: str = commands.Param(choices=["очистка_ролей_кик", "таймаут_3ч"])
+        наказание: str = commands.Param(choices=["кик", "таймаут_3ч"])
     ):
         punishment_map = {
-            "очистка_ролей_кик": "clear_roles_kick",
+            "кик": "clear_roles_kick",
             "таймаут_3ч": "timeout_3h"
         }
         if not 0 <= лимит <= 100 or not 1 <= окно <= 300:
@@ -462,7 +462,7 @@ class AntiRaid(commands.Cog):
         for action, cfg in self.config.items():
             status = "✅ Вкл" if cfg["limit"] > 0 else "❌ Выкл"
             punishment_map = {
-                "clear_roles_kick": "очистка_ролей + кик",
+                "clear_roles_kick": "кик",
                 "timeout_3h": "таймаут 3 часа"
             }
             embed.add_field(
