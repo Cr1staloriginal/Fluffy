@@ -7,7 +7,7 @@ class Say(commands.Cog):
         self.bot = bot
 
     # ========== КОМАНДА /СКАЖИ (простой текст) ==========
-    @commands.slash_command(name="скажи", description="📢 Отправить текстовое сообщение от имени бота")
+    @commands.slash_command(name="скажи", description="📢 Отправить текстовое сообщение от имени бота", default_member_permissions=disnake.Permissions(administrator=True))
     @commands.has_permissions(administrator=True)
     async def say(
         self,
@@ -28,7 +28,7 @@ class Say(commands.Cog):
         await channel.send(сообщение)
 
     # ========== КОМАНДА /СКАЖИ_EMBED (embed с выбором цвета) ==========
-    @commands.slash_command(name="скажи_embed", description="📊 Отправить embed сообщение от имени бота")
+    @commands.slash_command(name="скажи_embed", description="📊 Отправить embed сообщение от имени бота", default_member_permissions=disnake.Permissions(administrator=True))
     @commands.has_permissions(administrator=True)
     async def say_embed(
         self,
