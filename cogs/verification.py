@@ -130,7 +130,7 @@ class VerificationModal(disnake.ui.Modal):
 
 class VerificationActions(disnake.ui.View):
     def __init__(self, user_id: int, user_name: str):
-        super().__init__(timeout=86400)
+        super().__init__(timeout=None)
         self.user_id = user_id
         self.user_name = user_name
 
@@ -145,7 +145,7 @@ class VerificationActions(disnake.ui.View):
             return False
         return True
 
-    @disnake.ui.button(label="✅ Принять", style=disnake.ButtonStyle.success)
+    @disnake.ui.button(label="✅ Принять", style=disnake.ButtonStyle.success, custom_id="fluffy:verification:accept")
     async def accept_button(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
         await interaction.response.defer()
         guild = interaction.guild
@@ -172,7 +172,7 @@ class VerificationActions(disnake.ui.View):
         else:
             await interaction.followup.send("❌ Роль для верифицированных не найдена.", ephemeral=True)
 
-    @disnake.ui.button(label="❌ Отклонить", style=disnake.ButtonStyle.danger)
+    @disnake.ui.button(label="❌ Отклонить", style=disnake.ButtonStyle.danger, custom_id="fluffy:verification:reject")
     async def reject_button(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
         await interaction.response.defer()
         guild = interaction.guild
@@ -210,6 +210,17 @@ class VerificationActions(disnake.ui.View):
 class Verification(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
+
+    async def cog_load(self):
+        """Restore persistent moderation buttons for pending applications after restart."""
+        await init_verification_table()
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            async with db.execute(
+                "SELECT user_id, message_id FROM verification_applications WHERE status='pending'"
+            ) as cur:
+                pending = await cur.fetchall()
+        for user_id, message_id in pending:
+            self.bot.add_view(VerificationActions(user_id, str(user_id)), message_id=message_id)
 
     @commands.slash_command(
         name="setup_verification",
