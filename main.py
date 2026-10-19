@@ -28,6 +28,9 @@ from utils.log_dispatcher import LogDispatcher
 from database import init_db
 
 
+CRITICAL_COGS = {"antiraid", "automod", "verification", "logs", "tickets"}
+
+
 async def load_cogs(bot: commands.InteractionBot) -> tuple[int, int]:
     """Load all cogs and report failures without hiding them."""
     cogs_dir = BASE_DIR / "cogs"
@@ -44,9 +47,14 @@ async def load_cogs(bot: commands.InteractionBot) -> tuple[int, int]:
             bot.load_extension(extension)
             loaded += 1
             logger.info("Загружен ког: %s", path.name)
-        except Exception:
+        except Exception as exc:
             failed += 1
             logger.exception("Не удалось загрузить ког %s", path.name)
+            if path.stem in CRITICAL_COGS:
+                raise RuntimeError(
+                    f"Критически важный модуль {extension} не загрузился. "
+                    "Запуск остановлен, чтобы бот не работал без защиты/модерации."
+                ) from exc
 
     logger.info("Загрузка cogs завершена: %d успешно, %d с ошибками", loaded, failed)
     return loaded, failed
