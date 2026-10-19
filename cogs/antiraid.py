@@ -226,7 +226,7 @@ class AntiRaid(commands.Cog):
             await channel.send(embed=embed)
 
     # ---------- БЭКАП СЕРВЕРА ----------
-    @commands.slash_command(name="бэкап", description="📦 Создать бэкап структуры сервера")
+    @commands.slash_command(name="бэкап", description="📦 Создать бэкап структуры сервера", default_member_permissions=disnake.Permissions(administrator=True))
     @commands.has_permissions(administrator=True)
     async def backup(self, inter: disnake.ApplicationCommandInteraction):
         await inter.response.defer(ephemeral=True)
@@ -297,7 +297,7 @@ class AntiRaid(commands.Cog):
         await inter.edit_original_response(content=f"✅ Бэкап сервера сохранён: `{filename}`")
 
     # ---------- ВОССТАНОВЛЕНИЕ ИЗ БЭКАПА ----------
-    @commands.slash_command(name="восстановить_бэкап", description="🔄 Восстановить структуру сервера из бэкапа")
+    @commands.slash_command(name="восстановить_бэкап", description="🔄 Восстановить структуру сервера из бэкапа", default_member_permissions=disnake.Permissions(administrator=True))
     @commands.has_permissions(administrator=True)
     async def restore_backup(
         self,
