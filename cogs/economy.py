@@ -60,6 +60,7 @@ class Economy(commands.Cog):
             "INSERT OR IGNORE INTO economy_accounts(guild_id, user_id, balance) VALUES (?, ?, ?)",
             (guild_id, user_id, STARTING_BALANCE),
         )
+        await db.commit()
 
     @commands.slash_command(name="баланс", description="Показать баланс участника")
     async def balance(
