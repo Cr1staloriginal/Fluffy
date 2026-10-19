@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import disnake
 from disnake.ext import commands, tasks
 import time
@@ -24,13 +25,13 @@ RAID_CONFIG = {
 
 # Destructive actions are opt-in in the environment; set true on the server after
 # confirming that the bot has View Audit Log, Kick Members and a suitable role.
-ANTIRAID_AUTO_PUNISH = os.getenv("ANTIRAID_AUTO_PUNISH", "false").strip().lower() in {"1", "true", "yes", "on"}
+ANTIRAID_AUTO_PUNISH = os.getenv("ANTIRAID_AUTO_PUNISH", "true").strip().lower() in {"1", "true", "yes", "on"}
 
 # ---------------------- ОСНОВНОЙ КОГ ----------------------
 class AntiRaid(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
-        self.config = RAID_CONFIG.copy()
+        self.config = copy.deepcopy(RAID_CONFIG)
         self.trackers = {
             "создание_каналов": defaultdict(deque),
             "изменение_каналов": defaultdict(deque),
@@ -43,6 +44,45 @@ class AntiRaid(commands.Cog):
         }
         self.raid_active = False
         self.last_triggered = defaultdict(dict)
+
+    async def cog_load(self):
+        """Load persisted anti-raid settings; keep defaults for missing actions."""
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS antiraid_config (
+                    action_type TEXT PRIMARY KEY,
+                    limit_value INTEGER NOT NULL,
+                    time_window INTEGER NOT NULL,
+                    punishment TEXT NOT NULL
+                )
+            """)
+            async with db.execute(
+                "SELECT action_type, limit_value, time_window, punishment FROM antiraid_config"
+            ) as cur:
+                for action_type, limit_value, time_window, punishment in await cur.fetchall():
+                    if action_type in self.config and punishment in {"clear_roles_kick", "timeout_3h"}:
+                        self.config[action_type] = {
+                            "limit": max(0, min(int(limit_value), 100)),
+                            "time_window": max(1, min(int(time_window), 300)),
+                            "punishment": punishment,
+                        }
+            await db.commit()
+
+    async def save_config(self):
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            await db.executemany(
+                """INSERT INTO antiraid_config(action_type, limit_value, time_window, punishment)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(action_type) DO UPDATE SET
+                     limit_value=excluded.limit_value,
+                     time_window=excluded.time_window,
+                     punishment=excluded.punishment""",
+                [
+                    (action, cfg["limit"], cfg["time_window"], cfg["punishment"])
+                    for action, cfg in self.config.items()
+                ],
+            )
+            await db.commit()
 
     # ---------- ОБРАБОТЧИКИ СОБЫТИЙ ----------
     @commands.Cog.listener()
@@ -387,6 +427,7 @@ class AntiRaid(commands.Cog):
         pass
 
     @antiraid.sub_command(name="настроить", description="Изменить настройки анти-рейда")
+    @commands.has_permissions(administrator=True)
     async def set_config(
         self,
         inter: disnake.ApplicationCommandInteraction,
@@ -394,13 +435,20 @@ class AntiRaid(commands.Cog):
                                            "создание_ролей", "изменение_ролей", "удаление_ролей", "бан", "спам"]),
         лимит: int = commands.Param(description="Количество действий до срабатывания (0 = выкл)"),
         окно: int = commands.Param(description="Временное окно в секундах"),
-        наказание: str = commands.Param(choices=["очистка_ролей_кик", "таймаут_3ч"])
+        наказание: str = commands.Param(choices=["кик", "таймаут_3ч"])
     ):
         punishment_map = {
-            "очистка_ролей_кик": "clear_roles_kick",
+            "кик": "clear_roles_kick",
             "таймаут_3ч": "timeout_3h"
         }
+        if not 0 <= лимит <= 100 or not 1 <= окно <= 300:
+            await inter.response.send_message(
+                "❌ Лимит должен быть от 0 до 100, окно — от 1 до 300 секунд.",
+                ephemeral=True,
+            )
+            return
         self.config[тип] = {"limit": лимит, "time_window": окно, "punishment": punishment_map[наказание]}
+        await self.save_config()
         await inter.response.send_message(
             f"✅ Настройки для **{тип}** обновлены:\n"
             f"Лимит: {лимит}\nОкно: {окно} сек\nНаказание: {наказание}",
@@ -408,12 +456,13 @@ class AntiRaid(commands.Cog):
         )
 
     @antiraid.sub_command(name="статус", description="Показать текущие настройки анти-рейда")
+    @commands.has_permissions(administrator=True)
     async def show_config(self, inter: disnake.ApplicationCommandInteraction):
         embed = disnake.Embed(title="🛡️ Настройки анти-рейда", color=disnake.Color.blurple())
         for action, cfg in self.config.items():
             status = "✅ Вкл" if cfg["limit"] > 0 else "❌ Выкл"
             punishment_map = {
-                "clear_roles_kick": "очистка_ролей + кик",
+                "clear_roles_kick": "кик",
                 "timeout_3h": "таймаут 3 часа"
             }
             embed.add_field(
@@ -424,8 +473,10 @@ class AntiRaid(commands.Cog):
         await inter.response.send_message(embed=embed, ephemeral=True)
 
     @antiraid.sub_command(name="сброс", description="Сбросить все настройки к значениям по умолчанию")
+    @commands.has_permissions(administrator=True)
     async def reset_config(self, inter: disnake.ApplicationCommandInteraction):
-        self.config = RAID_CONFIG.copy()
+        self.config = copy.deepcopy(RAID_CONFIG)
+        await self.save_config()
         await inter.response.send_message("✅ Настройки анти-рейда сброшены до значений по умолчанию.", ephemeral=True)
 
 def setup(bot: commands.InteractionBot):

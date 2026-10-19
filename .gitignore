@@ -178,6 +178,12 @@ pyrightconfig.json
 .env.*
 !.env.example
 data/*.db
+data/*.sqlite
+data/*.sqlite3
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
 data/*.db-shm
 data/*.db-wal
 backups/

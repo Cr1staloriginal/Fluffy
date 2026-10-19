@@ -12,6 +12,7 @@ IGNORED_CHANNEL_IDS = [1473318583089234022, 1473324895546114324, 147332379351777
 
 # ---------------------- ПУТИ К ФАЙЛАМ (опционально) ----------------------
 WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "words.txt")
+DATA_WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "words.txt")
 SCAM_DOMAINS_FILE = os.path.join(os.path.dirname(__file__), "..", "scam_domains.txt")
 POLITICS_WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "politics_words.txt")
 
@@ -112,23 +113,39 @@ EMAIL_PATTERN = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b
 
 # ---------------------- ЗАГРУЗКА ИЗ ФАЙЛОВ (если есть) ----------------------
 
+def _load_words(path: str, builtins: list[str], fallback_path: str | None = None) -> list[str]:
+    """Merge custom entries with built-ins; a missing optional file must not disable defaults."""
+    entries = list(builtins)
+    candidates = [path]
+    if fallback_path:
+        candidates.append(fallback_path)
+    for candidate in candidates:
+        if not os.path.isfile(candidate):
+            continue
+        try:
+            with open(candidate, "r", encoding="utf-8") as f:
+                entries.extend(
+                    line.strip().lower()
+                    for line in f
+                    if line.strip() and not line.lstrip().startswith("#")
+                )
+            break
+        except OSError:
+            # Keep built-ins active if an optional file cannot be read.
+            continue
+    return list(dict.fromkeys(entries))
+
+
 def load_bad_words():
-    if not os.path.exists(WORDS_FILE):
-        return BUILTIN_BAD_WORDS
-    with open(WORDS_FILE, "r", encoding="utf-8") as f:
-        return [line.strip().lower() for line in f if line.strip()]
+    return _load_words(WORDS_FILE, BUILTIN_BAD_WORDS, DATA_WORDS_FILE)
+
 
 def load_scam_domains():
-    if not os.path.exists(SCAM_DOMAINS_FILE):
-        return BUILTIN_SCAM_DOMAINS
-    with open(SCAM_DOMAINS_FILE, "r", encoding="utf-8") as f:
-        return [line.strip().lower() for line in f if line.strip()]
+    return _load_words(SCAM_DOMAINS_FILE, BUILTIN_SCAM_DOMAINS)
+
 
 def load_politics_words():
-    if not os.path.exists(POLITICS_WORDS_FILE):
-        return BUILTIN_POLITICS_WORDS
-    with open(POLITICS_WORDS_FILE, "r", encoding="utf-8") as f:
-        return [line.strip().lower() for line in f if line.strip()]
+    return _load_words(POLITICS_WORDS_FILE, BUILTIN_POLITICS_WORDS)
 
 # ---------------------- НАСТРОЙКИ ФИЛЬТРОВ ----------------------
 MAX_CAPS_PERCENT = 70
@@ -234,7 +251,7 @@ class AutoMod(commands.Cog):
 
         # ---------- 5. РЕКЛАМА (2.5) ----------
         if not violation:
-            ad_pattern = re.compile(r'(реклама|промо|сайт|канал|сервер|discord\.gg|discord\.com/invite)', re.IGNORECASE)
+            ad_pattern = re.compile(r'(?i)(?:\bреклама\b|\bпромо\b|\bсамопиар\b|discord\.gg/|discord\.com/invite/|https?://\S+)')
             if ad_pattern.search(content) and len(content) < 100:
                 violation = "Реклама или само-промо"
                 rule_name = "📜 Правило 2.5: Реклама и само-промо запрещены без разрешения"
