@@ -128,7 +128,6 @@ class Giveaways(commands.Cog):
             ) as cur:
                 expired = await cur.fetchall()
             for message_id, guild_id, channel_id, prize, winners_count in expired:
-                await db.execute("UPDATE giveaways SET ended=1 WHERE message_id=?", (message_id,))
                 async with db.execute(
                     "SELECT user_id FROM giveaway_entries WHERE message_id=?",
                     (message_id,),
@@ -152,7 +151,12 @@ class Giveaways(commands.Cog):
                             color=disnake.Color.green(),
                         )
                         await message.edit(embed=embed, view=view)
-                        await channel.send(f"Поздравляем {mentions}! Вы выиграли **{prize}**.")
+                        await db.execute("UPDATE giveaways SET ended=1 WHERE message_id=?", (message_id,))
+                        await db.commit()
+                        try:
+                            await channel.send(f"Поздравляем {mentions}! Вы выиграли **{prize}**.")
+                        except (disnake.Forbidden, disnake.HTTPException):
+                            logger.exception("Розыгрыш %s завершён, но не удалось отправить объявление победителей", message_id)
                     else:
                         embed = disnake.Embed(
                             title="Розыгрыш завершён",
@@ -160,6 +164,8 @@ class Giveaways(commands.Cog):
                             color=disnake.Color.orange(),
                         )
                         await message.edit(embed=embed, view=view)
+                        await db.execute("UPDATE giveaways SET ended=1 WHERE message_id=?", (message_id,))
+                        await db.commit()
                 except (disnake.Forbidden, disnake.NotFound, disnake.HTTPException):
                     logger.exception("Не удалось завершить розыгрыш %s", message_id)
             await db.commit()
