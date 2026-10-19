@@ -233,7 +233,7 @@ class AutoMessages(commands.Cog):
         print(f"[AutoMessages] Запущено. Локальное время бота: {now.strftime('%H:%M %d.%m.%Y %Z')}")
 
     # ===== КОМАНДЫ =====
-    @commands.slash_command(name="автосообщение", description="⚙️ Управление автосообщениями")
+    @commands.slash_command(name="автосообщение", description="⚙️ Управление автосообщениями", default_member_permissions=disnake.Permissions(administrator=True))
     @commands.has_permissions(administrator=True)
     async def auto_group(self, inter: disnake.ApplicationCommandInteraction):
         pass

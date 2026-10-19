@@ -150,7 +150,7 @@ class Warns(commands.Cog):
         view = WarnActionButtons(warn_id, user_id, reason, warn_count)
         await channel.send(embed=embed, view=view)
 
-    @commands.slash_command(name="варны", description="📋 Показать предупреждения участника")
+    @commands.slash_command(name="варны", description="📋 Показать предупреждения участника", default_member_permissions=disnake.Permissions(moderate_members=True))
     @commands.has_permissions(moderate_members=True)
     async def warns(self, inter: disnake.ApplicationCommandInteraction, member: disnake.Member):
         from database import get_user_warns
@@ -165,7 +165,7 @@ class Warns(commands.Cog):
         embed.description = text[:2000]
         await inter.response.send_message(embed=embed, ephemeral=True)
 
-    @commands.slash_command(name="снять_варн", description="🗑️ Снять предупреждение по ID")
+    @commands.slash_command(name="снять_варн", description="🗑️ Снять предупреждение по ID", default_member_permissions=disnake.Permissions(moderate_members=True))
     @commands.has_permissions(moderate_members=True)
     async def remove_warn_cmd(self, inter: disnake.ApplicationCommandInteraction, warn_id: int):
         if await remove_warn(warn_id):

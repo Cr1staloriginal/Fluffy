@@ -8,7 +8,7 @@ class RestoreDB(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
 
-    @commands.slash_command(name="восстановить_бд", description="Восстановить таблицы базы данных (только для владельца)")
+    @commands.slash_command(name="восстановить_бд", description="Восстановить таблицы базы данных (только для владельца)", default_member_permissions=disnake.Permissions(administrator=True))
     @commands.is_owner()
     async def restore_db(self, inter: disnake.ApplicationCommandInteraction):
         await inter.response.defer(ephemeral=True)

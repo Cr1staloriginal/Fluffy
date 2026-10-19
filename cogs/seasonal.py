@@ -19,7 +19,7 @@ class Seasonal(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
 
-    @commands.slash_command(name="сезон", description="🎭 Управление сезонными фразами (только для владельца)")
+    @commands.slash_command(name="сезон", description="🎭 Управление сезонными фразами (только для владельца)", default_member_permissions=disnake.Permissions(administrator=True))
     @commands.is_owner()
     async def seasonal(self, inter: disnake.ApplicationCommandInteraction):
         """Группа команд для управления сезонными фразами."""

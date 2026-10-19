@@ -70,7 +70,7 @@ class Announce(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
 
-    @commands.slash_command(name="объявление", description="📢 Создать объявление через модальное окно (только для администраторов)")
+    @commands.slash_command(name="объявление", description="📢 Создать объявление через модальное окно (только для администраторов)", default_member_permissions=disnake.Permissions(administrator=True))
     @commands.has_permissions(administrator=True)
     async def announce(self, inter: disnake.ApplicationCommandInteraction):
         await inter.response.send_modal(AnnounceModal())

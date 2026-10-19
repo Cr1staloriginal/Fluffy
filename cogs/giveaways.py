@@ -82,7 +82,7 @@ class Giveaways(commands.Cog):
     def cog_unload(self):
         self.finish_expired.cancel()
 
-    @commands.slash_command(name="розыгрыш_создать", description="Создать бесплатный розыгрыш")
+    @commands.slash_command(name="розыгрыш_создать", description="Создать бесплатный розыгрыш", default_member_permissions=disnake.Permissions(manage_guild=True))
     @commands.has_permissions(manage_guild=True)
     async def create_giveaway(
         self,
