@@ -224,7 +224,8 @@ class Verification(commands.Cog):
 
     @commands.slash_command(
         name="setup_verification",
-        description="📋 Отправить embed с кнопкой для подачи заявки в текущий канал"
+        description="📋 Отправить embed с кнопкой для подачи заявки в текущий канал",
+        default_member_permissions=disnake.Permissions(administrator=True),
     )
     @commands.has_permissions(administrator=True)
     async def setup_verification(self, inter: disnake.ApplicationCommandInteraction):
