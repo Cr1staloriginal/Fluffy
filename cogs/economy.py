@@ -90,6 +90,7 @@ class Economy(commands.Cog):
         today = datetime.now(timezone.utc).date().isoformat()
         async with aiosqlite.connect(str(DB_PATH)) as db:
             await self.ensure_account(db, inter.guild.id, inter.author.id)
+            await db.execute("BEGIN IMMEDIATE")
             async with db.execute(
                 "SELECT last_daily FROM economy_accounts WHERE guild_id=? AND user_id=?",
                 (inter.guild.id, inter.author.id),
