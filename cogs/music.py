@@ -1,4 +1,3 @@
-"""YouTube audio player for Discord voice channels (requires FFmpeg and PyNaCl)."""
 from __future__ import annotations
 
 import asyncio
