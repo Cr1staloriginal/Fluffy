@@ -8,11 +8,11 @@ from utils.colors import main_color
 TICKET_CATEGORY = "Тикеты"
 CLOSED_CATEGORY_NAME = "Закрытые тикеты"
 STAFF_ROLE_NAMES = [
-    "🦊 Хвостик порядка",
-    "🦊 Старший хвостик",
-    "🐾 Младшая лапка",
-    "🐾 Старшая лапка",
-    "🐾 Главная лапка"
+    "Городской страж",
+    "Старший страж порядка",
+    "Городской советник",
+    "Старейшина города",
+    "Мэр"
 ]
 MOD_LOG_CHANNEL_ID = int(os.getenv("LOG_CH_TICKETS", 0))
 

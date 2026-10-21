@@ -13,7 +13,7 @@ MODERATION_ROLE_ID = int(os.getenv("MODERATION_ROLE_ID", 0))  # Новая пе�
 GUILD_ID = int(os.getenv("GUILD_ID", 0))
 
 STAFF_ROLE_NAMES = [
-    "⛑️Верификатор",
+    "Привратник",
 ]
 
 async def init_verification_table():

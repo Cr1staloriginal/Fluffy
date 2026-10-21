@@ -1,8 +1,3 @@
-"""Backward-compatible settings module.
-
-Importing this module does not abort the process when DISCORD_TOKEN is missing;
-main.py validates the token when the application starts.
-"""
 import os
 from pathlib import Path
 from dotenv import load_dotenv
