@@ -3,11 +3,16 @@ from disnake.ext import commands
 from database import log_event
 
 class VoiceLogs(commands.Cog):
+<<<<<<< HEAD
     def __init__(self, bot: commands.Bot):
+=======
+    def __init__(self, bot: commands.InteractionBot):
+>>>>>>> f42350e9a5a07c86594c560b74edb37ad7a73064
         self.bot = bot
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
+<<<<<<< HEAD
         if before.channel == after.channel:
             return
 
@@ -26,4 +31,47 @@ class VoiceLogs(commands.Cog):
         await log_event("voice_update", f"{member.id}|{before.channel.id if before.channel else None}->{after.channel.id if after.channel else None}")
 
 def setup(bot: commands.Bot):
+=======
+        try:
+            if before.channel == after.channel:
+                return
+
+            embed = disnake.Embed(
+                title="🎤 Голосовой канал",
+                timestamp=disnake.utils.utcnow()
+            )
+            embed.set_footer(text=f"ID участника: {member.id}")
+
+            if before.channel is None:
+                channel_name = getattr(after.channel, 'name', 'Unknown')
+                embed.description = f"{member.mention} зашёл в голосовой канал **{channel_name}**"
+                embed.color = disnake.Color.green()
+                embed.add_field(name="Канал (ID)", value=after.channel.id, inline=False)
+            elif after.channel is None:
+                channel_name = getattr(before.channel, 'name', 'Unknown')
+                embed.description = f"{member.mention} покинул голосовой канал **{channel_name}**"
+                embed.color = disnake.Color.red()
+                embed.add_field(name="Канал (ID)", value=before.channel.id, inline=False)
+            else:
+                before_name = getattr(before.channel, 'name', 'Unknown')
+                after_name = getattr(after.channel, 'name', 'Unknown')
+                embed.description = f"{member.mention} перешёл из **{before_name}** → **{after_name}**"
+                embed.color = disnake.Color.gold()
+                embed.add_field(name="Канал (ID)", value=after.channel.id, inline=False)
+
+            try:
+                await self.bot.log_dispatcher.send("voice", embed)
+            except Exception as e:
+                print(f"VoiceLogs: не удалось отправить embed в log_dispatcher: {e}")
+
+            try:
+                await log_event("voice_update", f"{member.id}|{(before.channel.id if before.channel else 'None')}->{(after.channel.id if after.channel else 'None')}")
+            except Exception as e:
+                print(f"VoiceLogs: не удалось записать событие в БД: {e}")
+
+        except Exception as e:
+            print(f"VoiceLogs: ошибка в обработчике on_voice_state_update: {e}")
+
+def setup(bot: commands.InteractionBot):
+>>>>>>> f42350e9a5a07c86594c560b74edb37ad7a73064
     bot.add_cog(VoiceLogs(bot))

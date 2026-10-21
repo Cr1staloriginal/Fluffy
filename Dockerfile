@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 FROM python:3.13-slim
 
 # Метаданные образа (опционально, но полезно)
@@ -26,4 +27,20 @@ RUN if [ ! -f "main.py" ]; then echo "Error: main.py not found!" && exit 1; fi
 # EXPOSE 8080
 
 # Запускаем бота
+=======
+FROM python:3.11-slim
+
+# Устанавливаем ffmpeg
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+>>>>>>> f42350e9a5a07c86594c560b74edb37ad7a73064
 CMD ["python", "main.py"]

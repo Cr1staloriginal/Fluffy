@@ -1,0 +1,48 @@
+name: Python checks
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+      - name: Compile Python files
+        run: python -m compileall -q .
+      - name: Run unit tests
+        env:
+          DATABASE_PATH: /tmp/fluffy-ci/database.db
+        run: python -m unittest discover -s tests -v
+      - name: Import bot modules
+        env:
+          DATABASE_PATH: /tmp/fluffy-ci/database.db
+          DISCORD_TOKEN: ci-placeholder-token
+        run: |
+          python - <<'PY'
+          import importlib
+          from pathlib import Path
+          modules = ["database", "utils.colors", "utils.guild_config", "cogs.help_cog",
+                     "cogs.music", "cogs.integrations", "cogs.server_settings",
+                     "cogs.custom_commands"]
+          for module in modules:
+              importlib.import_module(module)
+              print("OK:", module)
+          for path in Path("cogs").glob("*.py"):
+              if path.name.startswith("_"):
+                  continue
+              importlib.import_module("cogs." + path.stem)
+              print("OK:", "cogs." + path.stem)
+          PY

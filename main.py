@@ -2,70 +2,97 @@ import asyncio
 import logging
 import os
 import sys
-from dotenv import load_dotenv
+from pathlib import Path
+
 import disnake
 from disnake.ext import commands
+from dotenv import load_dotenv
 
-# Настройка логирования
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
+TOKEN = os.getenv("DISCORD_TOKEN", "").strip()
+
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DOTENV_PATH = os.path.join(BASE_DIR, '.env')
-load_dotenv(DOTENV_PATH)
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-
-if not DISCORD_TOKEN:
-    logger.error("DISCORD_TOKEN не найден")
-    sys.exit(1)
-
-# Настройка интентов
 intents = disnake.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.voice_states = True
 
-# Используем InteractionBot для чистых слеш-команд
-bot = commands.InteractionBot(intents=intents, test_guilds=[int(os.getenv("GUILD_ID", 0))])
-
-# Подключаем диспетчер логов
 from utils.log_dispatcher import LogDispatcher
-bot.log_dispatcher = LogDispatcher(bot)
-
 from database import init_db
 
-@bot.event
-async def on_ready():
-    await init_db()
-    logger.info(f"Бот: {bot.user} (ID: {bot.user.id})")
-    logger.info("Слеш-команды синхронизированы")
-    print("-" * 30)
-    print(f"Готов! Пригласи: https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
-    print("-" * 30)
 
-def load_cogs():
-    cogs_dir = os.path.join(BASE_DIR, "cogs")
-    if not os.path.isdir(cogs_dir):
-        logger.warning("Папка cogs не найдена")
-        return
-    for filename in os.listdir(cogs_dir):
-        if filename.endswith(".py") and not filename.startswith("_"):
-            cog_name = f"cogs.{filename[:-3]}"
-            try:
-                bot.load_extension(cog_name)
-                logger.info(f"[OK] {cog_name}")
-            except Exception as e:
-                logger.error(f"Ошибка загрузки {cog_name}: {e}")
+CRITICAL_COGS = {"antiraid", "automod", "verification", "logs", "tickets"}
+
+
+async def load_cogs(bot: commands.InteractionBot) -> tuple[int, int]:
+    """Load all cogs and report failures without hiding them."""
+    cogs_dir = BASE_DIR / "cogs"
+    if not cogs_dir.is_dir():
+        logger.error("Папка cogs не найдена: %s", cogs_dir)
+        return 0, 1
+
+    loaded = failed = 0
+    for path in sorted(cogs_dir.glob("*.py")):
+        if path.name.startswith("_"):
+            continue
+        extension = f"cogs.{path.stem}"
+        try:
+            bot.load_extension(extension)
+            loaded += 1
+            logger.info("Загружен ког: %s", path.name)
+        except Exception as exc:
+            failed += 1
+            logger.exception("Не удалось загрузить ког %s", path.name)
+            if path.stem in CRITICAL_COGS:
+                raise RuntimeError(
+                    f"Критически важный модуль {extension} не загрузился. "
+                    "Запуск остановлен, чтобы бот не работал без защиты/модерации."
+                ) from exc
+
+    logger.info("Загрузка cogs завершена: %d успешно, %d с ошибками", loaded, failed)
+    return loaded, failed
+
+
+async def main():
+    if not TOKEN:
+        raise RuntimeError("DISCORD_TOKEN не задан. Добавьте его в .env или переменные окружения.")
+
+    # Create the Discord client only after asyncio.run() has started its event loop.
+    # Creating it at module import time can bind disnake to a different loop,
+    # causing "The future belongs to a different loop" during gateway startup.
+    bot = commands.InteractionBot(intents=intents)
+    bot.log_dispatcher = LogDispatcher(bot)
+
+    @bot.event
+    async def on_ready():
+        logger.info("Бот %s готов (ID: %s)", bot.user, bot.user.id if bot.user else "unknown")
+        status_cog = bot.get_cog("StatusRotator")
+        if status_cog:
+            await status_cog.update_status()
+
+    await init_db()
+    logger.info("База данных инициализирована")
+    await load_cogs(bot)
+
+    try:
+        await bot.start(TOKEN)
+    finally:
+        if not bot.is_closed():
+            await bot.close()
+
 
 if __name__ == "__main__":
-    load_cogs()
     try:
-        bot.run(DISCORD_TOKEN)
+        asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Остановлен")
-    except Exception as e:
-        logger.error(f"Ошибка: {e}")
+        logger.info("Остановка по Ctrl+C")
+    except RuntimeError as exc:
+        logger.error("%s", exc)
+        sys.exit(1)

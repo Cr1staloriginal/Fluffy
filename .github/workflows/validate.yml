@@ -1,0 +1,33 @@
+name: Validate Python project
+
+on:
+  push:
+    branches: ["main", "fix/fluffy-stability-2026-10"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - name: Compile all Python files
+        run: python -m compileall -q .
+      - name: Import all cogs
+        run: |
+          python - <<'PY'
+          import importlib
+          from pathlib import Path
+          for path in sorted(Path("cogs").glob("*.py")):
+              if not path.name.startswith("_"):
+                  importlib.import_module(f"cogs.{path.stem}")
+                  print(f"OK: {path}")
+          import database
+          import utils.seasons
+          print("OK: core modules")
+          PY
