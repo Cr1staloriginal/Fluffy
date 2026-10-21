@@ -1,16 +1,7 @@
-<<<<<<< HEAD
-
-=======
->>>>>>> f42350e9a5a07c86594c560b74edb37ad7a73064
 disnake>=2.11.0
 aiosqlite==0.21.0
 python-dotenv==1.0.0
 aiofiles==23.2.0
-<<<<<<< HEAD
-PyNaCl==1.5.0
-requests==2.31.0
-=======
 PyNaCl>=1.5.0
 requests>=2.31.0
 yt-dlp>=2024.10.22
->>>>>>> f42350e9a5a07c86594c560b74edb37ad7a73064
