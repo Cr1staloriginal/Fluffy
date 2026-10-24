@@ -41,6 +41,29 @@ class EventQuest(commands.Cog):
                 row = await cur.fetchone()
         return bool(row and row[0])
 
+    @staticmethod
+    def find_role(guild: disnake.Guild, role_name: str) -> disnake.Role | None:
+        """Find a role by its exact name, ignoring surrounding whitespace/case."""
+        target = role_name.strip().casefold()
+        return next((role for role in guild.roles if role.name.strip().casefold() == target), None)
+
+    async def assign_event_role(
+        self, guild: disnake.Guild, member: disnake.Member, role_name: str
+    ) -> str | None:
+        """Assign an event role if it exists and the bot has permission to manage it."""
+        role = self.find_role(guild, role_name)
+        if role is None:
+            return f"Роль «{role_name}» не найдена — создай её на сервере."
+        if role in member.roles:
+            return None
+        try:
+            await member.add_roles(role, reason="Квест Fluffy Town")
+        except disnake.Forbidden:
+            return f"Не удалось выдать роль «{role_name}». Проверь право «Управлять ролями» и расположение роли Fluffy выше неё."
+        except disnake.HTTPException:
+            return f"Discord не смог выдать роль «{role_name}». Попробуй проверить настройки ролей."
+        return None
+
     @commands.slash_command(name="event_join", description="Зарегистрироваться в квесте «Тайна пропавшего хвоста»")
     async def event_join(self, inter: disnake.ApplicationCommandInteraction):
         if not inter.guild:
@@ -54,7 +77,13 @@ class EventQuest(commands.Cog):
                 return await inter.response.send_message("🕯️ Ты уже зарегистрирован! Ищи подсказки и отправляй ответы командой /event_answer.", ephemeral=True)
             await db.execute("INSERT INTO event_quest_participants(guild_id,user_id,joined_at) VALUES(?,?,?)", (inter.guild.id, inter.author.id, utc_now()))
             await db.commit()
-        await inter.response.send_message("🎃 Ты в игре! Ищи спрятанные подсказки в каналах сервера. Когда найдёшь кодовое слово, отправь его через /event_answer.", ephemeral=True)
+        role_warning = await self.assign_event_role(
+            inter.guild, inter.author, "🎃・Участник квеста"
+        )
+        message = "🎃 Ты в игре! Ищи спрятанные подсказки в каналах сервера. Когда найдёшь кодовое слово, отправь его через /event_answer."
+        if role_warning:
+            message += f"\n\n⚠️ {role_warning}"
+        await inter.response.send_message(message, ephemeral=True)
 
     @commands.slash_command(name="event_answer", description="Отправить кодовое слово из найденной подсказки")
     async def event_answer(self, inter: disnake.ApplicationCommandInteraction, answer: str):
@@ -83,7 +112,13 @@ class EventQuest(commands.Cog):
             await db.commit()
             async with db.execute("SELECT COALESCE(SUM(points),0), COUNT(*) FROM event_quest_solves WHERE guild_id=? AND user_id=?", (inter.guild.id, inter.author.id)) as cur:
                 total, count = await cur.fetchone()
-        await inter.response.send_message(f"🔑 Ответ принят! +{points} очков.\nТвой результат: {total} очков, разгадано подсказок: {count}.", ephemeral=True)
+        role_warning = await self.assign_event_role(
+            inter.guild, inter.author, "🔎・Искатель улик"
+        )
+        message = f"🔑 Ответ принят! +{points} очков.\nТвой результат: {total} очков, разгадано подсказок: {count}."
+        if role_warning:
+            message += f"\n\n⚠️ {role_warning}"
+        await inter.response.send_message(message, ephemeral=True)
 
     @commands.slash_command(name="event_rank", description="Посмотреть рейтинг участников квеста")
     async def event_rank(self, inter: disnake.ApplicationCommandInteraction):
