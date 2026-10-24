@@ -187,5 +187,19 @@ class EventQuest(commands.Cog):
             await db.commit()
         await inter.response.send_message("🔒 Приём ответов закрыт. Результаты сохранены; рейтинг доступен через /event_rank.", ephemeral=True)
 
+
+    @commands.slash_command(name="event_reset", description="Сбросить тестовые результаты и список участников", default_member_permissions=disnake.Permissions(manage_guild=True))
+    @commands.has_guild_permissions(manage_guild=True)
+    async def event_reset(self, inter: disnake.ApplicationCommandInteraction):
+        if not inter.guild:
+            return await inter.response.send_message("Команда доступна только на сервере.", ephemeral=True)
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            await db.execute("DELETE FROM event_quest_solves WHERE guild_id=?", (inter.guild.id,))
+            await db.execute("DELETE FROM event_quest_participants WHERE guild_id=?", (inter.guild.id,))
+            await db.execute("""INSERT INTO event_quest_state(guild_id,is_open,closed_at) VALUES(?,0,?)
+                ON CONFLICT(guild_id) DO UPDATE SET is_open=0,closed_at=excluded.closed_at""", (inter.guild.id, utc_now()))
+            await db.commit()
+        await inter.response.send_message("♻️ Результаты и участники сброшены. Список кодовых ответов сохранён. Теперь можно начать чистый квест через /event_start.", ephemeral=True)
+
 def setup(bot: commands.InteractionBot):
     bot.add_cog(EventQuest(bot))
