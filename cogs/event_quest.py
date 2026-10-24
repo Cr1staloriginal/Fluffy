@@ -188,6 +188,26 @@ class EventQuest(commands.Cog):
         await inter.response.send_message("🔒 Приём ответов закрыт. Результаты сохранены; рейтинг доступен через /event_rank.", ephemeral=True)
 
 
+
+    @commands.slash_command(name="event_code_remove", description="Удалить неверно добавленный ответ до начала квеста", default_member_permissions=disnake.Permissions(manage_guild=True))
+    @commands.has_guild_permissions(manage_guild=True)
+    async def event_code_remove(self, inter: disnake.ApplicationCommandInteraction, answer: str):
+        if not inter.guild:
+            return await inter.response.send_message("Команда доступна только на сервере.", ephemeral=True)
+        code = normalize_answer(answer)
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            async with db.execute("SELECT 1 FROM event_quest_solves WHERE guild_id=? AND code=? LIMIT 1", (inter.guild.id, code)) as cur:
+                has_solves = await cur.fetchone()
+            if has_solves:
+                return await inter.response.send_message("Этот ответ уже засчитывался. Удаление запрещено, чтобы не испортить рейтинг.", ephemeral=True)
+            cur = await db.execute("DELETE FROM event_quest_codes WHERE guild_id=? AND code=?", (inter.guild.id, code))
+            await db.commit()
+            removed = cur.rowcount > 0
+        if removed:
+            await inter.response.send_message("🗑️ Ответ удалён из списка квеста.", ephemeral=True)
+        else:
+            await inter.response.send_message("Такой ответ не найден.", ephemeral=True)
+
     @commands.slash_command(name="event_reset", description="Сбросить тестовые результаты и список участников", default_member_permissions=disnake.Permissions(manage_guild=True))
     @commands.has_guild_permissions(manage_guild=True)
     async def event_reset(self, inter: disnake.ApplicationCommandInteraction):
