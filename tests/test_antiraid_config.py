@@ -1,6 +1,6 @@
 import unittest
 
-from cogs.antiraid import RAID_CONFIG
+from cogs.antiraid import RAID_CONFIG, is_auto_punish_enabled
 
 
 class AntiRaidConfigTests(unittest.TestCase):
@@ -17,6 +17,15 @@ class AntiRaidConfigTests(unittest.TestCase):
             RAID_CONFIG["удаление_каналов"]["time_window"],
             RAID_CONFIG["изменение_каналов"]["time_window"],
         )
+
+    def test_automatic_punishment_is_disabled_by_default(self):
+        self.assertFalse(is_auto_punish_enabled(None))
+
+    def test_automatic_punishment_requires_explicit_opt_in(self):
+        self.assertFalse(is_auto_punish_enabled("false"))
+        self.assertFalse(is_auto_punish_enabled("0"))
+        self.assertTrue(is_auto_punish_enabled("true"))
+        self.assertTrue(is_auto_punish_enabled("1"))
 
 
 if __name__ == "__main__":
