@@ -409,6 +409,17 @@ class TemporaryVoiceRooms(commands.Cog):
             ) as cursor:
                 row = await cursor.fetchone()
             if row is None:
+                # Clean up rooms created by the previous implementation, which
+                # did not persist their owner in SQLite.
+                is_legacy_room = (
+                    old_channel.name.startswith(self.prefix)
+                    and (not self.category_id or old_channel.category_id == self.category_id)
+                )
+                if is_legacy_room and not old_channel.members:
+                    try:
+                        await old_channel.delete(reason="Удаление пустой старой временной комнаты")
+                    except (disnake.Forbidden, disnake.HTTPException):
+                        logger.exception("Не удалось удалить старую пустую комнату %s", old_channel.id)
                 return
 
             if not old_channel.members:
