@@ -23,9 +23,17 @@ RAID_CONFIG = {
     "спам": {"limit": 10, "time_window": 5, "punishment": "timeout_3h"}
 }
 
-# Destructive actions are opt-in in the environment; set true on the server after
-# confirming that the bot has View Audit Log, Kick Members and a suitable role.
-ANTIRAID_AUTO_PUNISH = os.getenv("ANTIRAID_AUTO_PUNISH", "true").strip().lower() in {"1", "true", "yes", "on"}
+def is_auto_punish_enabled(value: str | None = None) -> bool:
+    """Fail closed: automatic moderation is disabled unless explicitly enabled."""
+    raw_value = os.getenv("ANTIRAID_AUTO_PUNISH") if value is None else value
+    return str(raw_value if raw_value is not None else "false").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+
+
+# Destructive actions are opt-in. Enable explicitly only after testing permissions
+# and role hierarchy on a separate Discord server.
+ANTIRAID_AUTO_PUNISH = is_auto_punish_enabled()
 
 # ---------------------- ОСНОВНОЙ КОГ ----------------------
 class AntiRaid(commands.Cog):
