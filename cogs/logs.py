@@ -76,7 +76,8 @@ class Logs(commands.Cog):
     # ========== Сообщения ==========
     @commands.Cog.listener()
     async def on_message_delete(self, message: disnake.Message):
-        if message.author.bot:
+        # Delete events can arrive as partials; ignore DMs and missing authors.
+        if message.guild is None or message.author is None or message.author.bot:
             return
         embed = disnake.Embed(
             title="🗑 Удалено",
@@ -89,7 +90,10 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: disnake.Message, after: disnake.Message):
-        if before.author.bot or before.content == after.content:
+        # Ignore partial/DM events instead of assuming author and guild metadata exist.
+        if before.guild is None or before.author is None or before.author.bot:
+            return
+        if before.content == after.content:
             return
         embed = disnake.Embed(
             title="✏ Изменено",
