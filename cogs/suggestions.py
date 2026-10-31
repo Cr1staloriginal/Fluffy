@@ -25,6 +25,12 @@ async def init_tables():
                 status TEXT DEFAULT 'pending'
             )
         """)
+        async with db.execute("PRAGMA table_info(suggestions)") as cur:
+            columns = {row[1] for row in await cur.fetchall()}
+        if "channel_id" not in columns:
+            await db.execute("ALTER TABLE suggestions ADD COLUMN channel_id INTEGER")
+        if "message_id" not in columns:
+            await db.execute("ALTER TABLE suggestions ADD COLUMN message_id INTEGER")
         await db.execute("""
             CREATE TABLE IF NOT EXISTS suggestion_votes (
                 suggestion_id INTEGER NOT NULL,
@@ -34,6 +40,15 @@ async def init_tables():
             )
         """)
         await db.commit()
+
+async def save_suggestion_message(suggestion_id: int, channel_id: int, message_id: int):
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute(
+            "UPDATE suggestions SET channel_id = ?, message_id = ? WHERE id = ?",
+            (channel_id, message_id, suggestion_id),
+        )
+        await db.commit()
+
 
 async def get_votes(suggestion_id: int):
     async with aiosqlite.connect(str(DB_PATH)) as db:
@@ -98,6 +113,8 @@ class SuggestionModal(disnake.ui.Modal):
         embed.set_footer(text="Голосуйте кнопками ниже")
         view = SuggestionView(suggestion_id, inter.author.id)
         await inter.response.send_message(embed=embed, view=view)
+        message = await inter.original_message()
+        await save_suggestion_message(suggestion_id, message.channel.id, message.id)
 
 class SuggestionView(disnake.ui.View):
     def __init__(self, suggestion_id: int, author_id: int):
@@ -126,19 +143,19 @@ class SuggestionView(disnake.ui.View):
         embed.set_footer(text="Голосуйте кнопками ниже")
         await inter.message.edit(embed=embed, view=self)
 
-    @disnake.ui.button(label="👍", style=disnake.ButtonStyle.success)
+    @disnake.ui.button(label="👍", style=disnake.ButtonStyle.success, custom_id="fluffy:suggestion:upvote")
     async def upvote_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         await add_or_update_vote(self.suggestion_id, inter.author.id, 'up')
         await self.update_message(inter)
         await inter.response.send_message("✅ Ваш голос учтён!", ephemeral=True)
 
-    @disnake.ui.button(label="👎", style=disnake.ButtonStyle.danger)
+    @disnake.ui.button(label="👎", style=disnake.ButtonStyle.danger, custom_id="fluffy:suggestion:downvote")
     async def downvote_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         await add_or_update_vote(self.suggestion_id, inter.author.id, 'down')
         await self.update_message(inter)
         await inter.response.send_message("✅ Ваш голос учтён!", ephemeral=True)
 
-    @disnake.ui.button(label="🔧 Принять решение", style=disnake.ButtonStyle.primary)
+    @disnake.ui.button(label="🔧 Принять решение", style=disnake.ButtonStyle.primary, custom_id="fluffy:suggestion:resolve")
     async def resolve_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         member = inter.author
         is_staff = any(role.name in STAFF_ROLE_NAMES for role in member.roles) or member.guild_permissions.administrator
@@ -203,6 +220,21 @@ class ActionSelectView(disnake.ui.View):
 class Suggestions(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
+
+    async def cog_load(self):
+        """Restore persistent voting/decision buttons for open suggestions after restart."""
+        await init_tables()
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            async with db.execute(
+                """SELECT id, author_id, message_id FROM suggestions
+                   WHERE status IN ('open', 'pending') AND message_id IS NOT NULL"""
+            ) as cur:
+                rows = await cur.fetchall()
+        for suggestion_id, author_id, message_id in rows:
+            self.bot.add_view(
+                SuggestionView(suggestion_id, author_id),
+                message_id=message_id,
+            )
 
     @commands.slash_command(name="идея", description="📝 Предложить идею для сервера")
     async def idea(self, inter: disnake.ApplicationCommandInteraction):
