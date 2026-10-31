@@ -92,11 +92,14 @@ class TemporaryVoicePanel(disnake.ui.View):
         if room is None:
             return
         overwrite = room.overwrites_for(inter.guild.default_role)
-        is_closed = overwrite.connect is False
+        is_closed = overwrite.connect is False or (
+            overwrite.connect is None and not room.permissions_for(inter.guild.default_role).connect
+        )
         try:
             await room.set_permissions(
                 inter.guild.default_role,
-                connect=None if is_closed else False,
+                view_channel=True if is_closed else False,
+                connect=True if is_closed else False,
                 reason=f"Изменение доступа к комнате владельцем {inter.author.id}",
             )
         except disnake.HTTPException:
@@ -348,13 +351,20 @@ class TemporaryVoiceRooms(commands.Cog):
                     existing = await cursor.fetchone()
             if existing:
                 existing_room = member.guild.get_channel(existing[0])
-                if isinstance(existing_room, disnake.VoiceChannel):
+                # Reuse an active room only when the member is arriving from somewhere else.
+                # If they are leaving their own room for the lobby, let the normal
+                # cleanup/ownership-transfer logic below process the old channel.
+                if (
+                    isinstance(existing_room, disnake.VoiceChannel)
+                    and before.channel is not existing_room
+                ):
                     try:
                         await member.move_to(existing_room, reason="Возврат в свою временную комнату")
                     except disnake.HTTPException:
                         logger.exception("Не удалось вернуть участника %s в его комнату.", member.id)
                     return
-                await self.remove_room(existing[0])
+                if not isinstance(existing_room, disnake.VoiceChannel):
+                    await self.remove_room(existing[0])
 
             category = member.guild.get_channel(self.category_id) if self.category_id else lobby.category
             try:
@@ -363,6 +373,12 @@ class TemporaryVoiceRooms(commands.Cog):
                     category=category,
                     overwrites=lobby.overwrites,
                     reason=f"Temporary voice room for {member} ({member.id})",
+                )
+                await room.set_permissions(
+                    member.guild.default_role,
+                    view_channel=False,
+                    connect=False,
+                    reason="Новая временная комната закрыта по умолчанию",
                 )
                 await room.set_permissions(member, view_channel=True, connect=True)
                 async with aiosqlite.connect(str(DB_PATH)) as db:
