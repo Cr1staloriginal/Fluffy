@@ -356,7 +356,7 @@ class TemporaryVoiceRooms(commands.Cog):
                 # cleanup/ownership-transfer logic below process the old channel.
                 if (
                     isinstance(existing_room, disnake.VoiceChannel)
-                    and before.channel is not existing_room
+                    and (before.channel is None or before.channel.id != existing_room.id)
                 ):
                     try:
                         await member.move_to(existing_room, reason="Возврат в свою временную комнату")
