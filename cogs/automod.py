@@ -8,7 +8,21 @@ from database import add_warn
 
 # ---------------------- ИГНОРИРУЕМЫЕ КАНАЛЫ ----------------------
 # Игнорируемые по ID (точное совпадение)
-IGNORED_CHANNEL_IDS = [1473318583089234022, 1473324895546114324, 1473323793517772853, 1473324108791152794, 1473336508835434707, 1473333063760089149, 1473333954059964418, 1518685822268997744, 1436317914386010195 ]
+IGNORED_CHANNEL_IDS = {1473318583089234022, 1473324895546114324, 1473323793517772853, 1473324108791152794, 1473336508835434707, 1473333063760089149, 1473333954059964418, 1518685822268997744, 1436317914386010195}
+# Optional channel-name exclusions. Keep empty unless explicitly configured.
+IGNORED_CHANNEL_NAMES: tuple[str, ...] = ()
+
+
+def is_ignored_channel(channel_id: int, channel_name: str) -> bool:
+    name = channel_name.casefold()
+    return channel_id in IGNORED_CHANNEL_IDS or any(
+        excluded.casefold() in name for excluded in IGNORED_CHANNEL_NAMES if excluded
+    )
+
+
+def spam_bucket_key(guild_id: int, user_id: int) -> tuple[int, int]:
+    """Keep message-rate tracking isolated between Discord servers."""
+    return guild_id, user_id
 
 # ---------------------- ПУТИ К ФАЙЛАМ (опционально) ----------------------
 WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "words.txt")
@@ -175,15 +189,13 @@ class AutoMod(commands.Cog):
     async def on_message(self, message: disnake.Message):
         if message.author.bot or message.guild is None:
             return
-        if not message.channel.permissions_for(message.guild.me).manage_messages:
+        bot_member = message.guild.me
+        if bot_member is None or not message.channel.permissions_for(bot_member).manage_messages:
             return
 
         # ===== ИГНОРИРУЕМ УКАЗАННЫЕ КАНАЛЫ =====
-        if message.channel.id in IGNORED_CHANNEL_IDS:
+        if is_ignored_channel(message.channel.id, message.channel.name):
             return
-        for name in IGNORED_CHANNEL_NAMES:
-            if name in message.channel.name.lower():
-                return
 
         content = message.content
         if not content:
@@ -233,12 +245,14 @@ class AutoMod(commands.Cog):
             # Частые сообщения (спам по времени)
             if not violation:
                 now = time.time()
-                self.user_messages[message.author.id].append(now)
-                self.user_messages[message.author.id] = [
-                    t for t in self.user_messages[message.author.id] if now - t < SPAM_WINDOW
+                bucket = spam_bucket_key(message.guild.id, message.author.id)
+                self.user_messages[bucket].append(now)
+                self.user_messages[bucket] = [
+                    timestamp for timestamp in self.user_messages[bucket]
+                    if now - timestamp < SPAM_WINDOW
                 ]
-                if len(self.user_messages[message.author.id]) > MESSAGE_SPAM_LIMIT:
-                    violation = f"Спам ({len(self.user_messages[message.author.id])} сообщений за {SPAM_WINDOW} сек)"
+                if len(self.user_messages[bucket]) > MESSAGE_SPAM_LIMIT:
+                    violation = f"Спам ({len(self.user_messages[bucket])} сообщений за {SPAM_WINDOW} сек)"
                     rule_name = "📜 Правило 2.2: Спам, флуд и оффтоп запрещены"
                     rule_number = "2.2"
 
