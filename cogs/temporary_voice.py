@@ -8,7 +8,7 @@ import aiosqlite
 import disnake
 from disnake.ext import commands
 
-from database import DB_PATH
+from database import DB_PATH, log_event
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +205,19 @@ class TemporaryVoiceRooms(commands.Cog):
             await db.execute("DELETE FROM temporary_voice_rooms WHERE channel_id = ?", (channel_id,))
             await db.commit()
 
+    async def log_room(self, action: str, room: disnake.VoiceChannel, actor, detail: str = ""):
+        embed = disnake.Embed(
+            title=action,
+            description=f"**Комната:** {room.name} ({room.id})\\n**Участник:** {actor.mention} ({actor.id})" + (f"\\n{detail}" if detail else ""),
+            color=disnake.Color.blurple(),
+            timestamp=disnake.utils.utcnow(),
+        )
+        await self.bot.log_dispatcher.send("voice", embed)
+        try:
+            await log_event("temporary_voice", f"{room.guild.id}|{room.id}|{actor.id}|{action}|{detail}")
+        except Exception:
+            logger.exception("Не удалось сохранить лог временной комнаты %s", room.id)
+
     async def apply_modal_action(self, inter: disnake.ModalInteraction, action: str, value: str):
         room = await self.get_controlled_room(inter)
         if room is None:
@@ -281,6 +294,7 @@ class TemporaryVoiceRooms(commands.Cog):
                     (target.id, room.id, inter.guild.id),
                 )
                 await db.commit()
+            await self.log_room("👑 Передано владение приватной комнатой", room, inter.author, f"Новый владелец: {target.mention}")
             await inter.response.send_message(f"👑 Владение комнатой передано {target.mention}.", ephemeral=True)
 
     async def ensure_panel(self):
@@ -388,6 +402,7 @@ class TemporaryVoiceRooms(commands.Cog):
                     )
                     await db.commit()
                 await member.move_to(room, reason="Перемещение в личную временную комнату")
+                await self.log_room("🏠 Создана приватная комната", room, member, "Комната создана автоматически при входе в лобби")
             except (disnake.Forbidden, disnake.HTTPException):
                 logger.exception("Не удалось создать временную комнату для участника %s", member.id)
                 if "room" in locals():
@@ -427,6 +442,7 @@ class TemporaryVoiceRooms(commands.Cog):
                 await db.commit()
                 try:
                     await old_channel.delete(reason="Пустая временная голосовая комната")
+                    await self.log_room("🗑️ Удалена пустая приватная комната", old_channel, member, "Последний участник покинул комнату")
                 except (disnake.Forbidden, disnake.HTTPException):
                     logger.exception("Не удалось удалить пустую комнату %s", old_channel.id)
                 return
@@ -439,6 +455,7 @@ class TemporaryVoiceRooms(commands.Cog):
                         (next_owner.id, old_channel.id),
                     )
                     await db.commit()
+                    await self.log_room("👑 Автоматически передано владение комнатой", old_channel, member, f"Новый владелец: {next_owner.mention}")
                     logger.info("Владение комнатой %s передано участнику %s.", old_channel.id, next_owner.id)
 
 
