@@ -40,7 +40,7 @@ class LogDispatcher:
             return None
         return channel
 
-    async def send(self, category: str, embed: disnake.Embed = None, *, content: str = None) -> bool:
+    async def send(self, category: str, embed: disnake.Embed = None, *, content: str = None, view=None) -> bool:
         if category not in CATEGORY_ENV:
             logger.error("Unknown log category %r", category)
             return False
@@ -64,7 +64,7 @@ class LogDispatcher:
         async with lock:
             for attempt in range(3):
                 try:
-                    await channel.send(content=content, embed=embed, allowed_mentions=disnake.AllowedMentions.none())
+                    await channel.send(content=content, embed=embed, view=view, allowed_mentions=disnake.AllowedMentions.none())
                     return True
                 except disnake.Forbidden:
                     logger.error("Discord denied sending logs to %s", channel_id, exc_info=True)
