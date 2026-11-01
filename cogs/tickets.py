@@ -93,10 +93,7 @@ class TicketModal(disnake.ui.Modal):
         log_embed.add_field(name="Пользователь", value=f"{author} ({author.id})", inline=False)
         log_embed.add_field(name="Канал", value=channel.mention, inline=False)
         log_embed.add_field(name="Причина", value=reason, inline=False)
-        if MOD_LOG_CHANNEL_ID:
-            log_channel = interaction.bot.get_channel(MOD_LOG_CHANNEL_ID)
-            if log_channel:
-                await log_channel.send(embed=log_embed)
+        await interaction.bot.log_dispatcher.send("tickets", log_embed)
         await log_event("ticket_open", f"{author.id}|{channel.id}|{reason}")
 
 class CloseTicketButton(disnake.ui.View):
@@ -165,10 +162,7 @@ class CloseTicketButton(disnake.ui.View):
         )
         log_embed.add_field(name="Канал", value=f"#{inter.channel.name} (перемещён в архив, скрыт)", inline=False)
         log_embed.add_field(name="Закрыл", value=member.mention, inline=False)
-        if MOD_LOG_CHANNEL_ID:
-            log_channel = inter.bot.get_channel(MOD_LOG_CHANNEL_ID)
-            if log_channel:
-                await log_channel.send(embed=log_embed)
+        await inter.bot.log_dispatcher.send("tickets", log_embed)
         await log_event("ticket_close", f"{inter.channel.id}|closed by {member.id}|creator {self.creator_id}")
 
 class CreateTicketView(disnake.ui.View):
