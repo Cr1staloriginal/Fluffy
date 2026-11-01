@@ -123,9 +123,8 @@ class Warns(commands.Cog):
         self.bot = bot
 
     async def send_warn_to_mod_channel(self, user_id: int, reason: str, rule_name: str, message_link: str = None):
-        channel = self.bot.get_channel(MOD_LOG_CHANNEL_ID)
-        if not channel:
-            print(f"[Warns] Канал {MOD_LOG_CHANNEL_ID} не найден")
+        if not getattr(self.bot, "log_dispatcher", None):
+            print("[Warns] LogDispatcher недоступен")
             return
 
         # Считаем количество варнов у пользователя (для номера)
@@ -148,7 +147,10 @@ class Warns(commands.Cog):
         embed.set_footer(text=f"ID участника: {user_id}")
 
         view = WarnActionButtons(warn_id, user_id, reason, warn_count)
-        await channel.send(embed=embed, view=view)
+        sent = await self.bot.log_dispatcher.send("mod", embed)
+        if not sent:
+            print("[Warns] Не удалось отправить карточку предупреждения в канал модерации")
+            return
 
     @commands.slash_command(name="варны", description="📋 Показать предупреждения участника", default_member_permissions=disnake.Permissions(moderate_members=True))
     @commands.has_permissions(moderate_members=True)
