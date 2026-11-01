@@ -30,7 +30,7 @@ from utils.log_dispatcher import LogDispatcher
 from database import init_db
 
 
-CRITICAL_COGS = {"antiraid", "automod", "verification", "logs", "tickets"}
+CRITICAL_COGS = {"antiraid", "automod", "verification", "logs", "audit_logs", "tickets"}
 
 
 async def load_cogs(bot: commands.InteractionBot) -> tuple[int, int]:
