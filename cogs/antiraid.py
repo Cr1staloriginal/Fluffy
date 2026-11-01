@@ -9,7 +9,7 @@ import os
 from collections import deque, defaultdict
 from datetime import datetime
 import aiosqlite
-from database import DB_PATH
+from database import DB_PATH, log_event
 
 # ---------------------- КОНФИГУРАЦИЯ (на русском) ----------------------
 RAID_CONFIG = {
@@ -221,17 +221,22 @@ class AntiRaid(commands.Cog):
         await self.log_raid(guild, action_type, actor, result)
 
     async def log_raid(self, guild: disnake.Guild, action_type: str, actor, punishment: str):
-        channel = guild.system_channel or next(iter(guild.text_channels), None)
-        if channel:
-            embed = disnake.Embed(
-                title="🚨 Сработала анти-рейд система!",
-                description=f"**Действие:** {action_type}\n"
-                            f"**Нарушитель:** {actor.mention if hasattr(actor, 'mention') else str(actor)}\n"
-                            f"**Наказание:** {punishment}",
-                color=disnake.Color.red(),
-                timestamp=disnake.utils.utcnow()
-            )
-            await channel.send(embed=embed)
+        actor_id = getattr(actor, "id", 0)
+        actor_label = actor.mention if hasattr(actor, "mention") else str(actor)
+        embed = disnake.Embed(
+            title="🚨 Сработала анти-рейд система!",
+            description=f"**Действие:** {action_type}\n"
+                        f"**Нарушитель:** {actor_label} ({actor_id})\n"
+                        f"**Результат:** {punishment}",
+            color=disnake.Color.red(),
+            timestamp=disnake.utils.utcnow()
+        )
+        embed.set_footer(text=f"Fluffy Anti-Raid • Guild ID: {guild.id}")
+        await self.bot.log_dispatcher.send("mod", embed)
+        try:
+            await log_event("antiraid", f"{guild.id}|{action_type}|{actor_id}|{punishment}")
+        except Exception:
+            logger.exception("Не удалось сохранить событие Anti-Raid в SQLite")
 
     # ---------- БЭКАП СЕРВЕРА ----------
     @commands.slash_command(name="бэкап", description="📦 Создать бэкап структуры сервера", default_member_permissions=disnake.Permissions(administrator=True))
