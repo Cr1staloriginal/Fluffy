@@ -58,6 +58,12 @@ class TicketModal(disnake.ui.Modal):
             if role:
                 overwrites[role] = disnake.PermissionOverwrite(read_messages=True, send_messages=True)
 
+        # The server owner is explicitly included as well (even if their role changes).
+        if guild.owner:
+            overwrites[guild.owner] = disnake.PermissionOverwrite(
+                read_messages=True, send_messages=True, attach_files=True, embed_links=True
+            )
+
         channel_name = f"ticket-{author.name}"
         try:
             channel = await guild.create_text_channel(
@@ -131,6 +137,12 @@ class CloseTicketButton(disnake.ui.View):
             role = disnake.utils.get(guild.roles, name=role_name)
             if role:
                 new_overwrites[role] = disnake.PermissionOverwrite(read_messages=True, send_messages=False)
+
+        # All administration/moderation roles and the server owner retain archive access.
+        if guild.owner:
+            new_overwrites[guild.owner] = disnake.PermissionOverwrite(
+                read_messages=True, send_messages=False
+            )
 
         creator = guild.get_member(self.creator_id)
         if creator and not any(role.name in STAFF_ROLE_NAMES for role in creator.roles):
