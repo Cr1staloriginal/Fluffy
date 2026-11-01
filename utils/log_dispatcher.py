@@ -1,4 +1,5 @@
-"""Safely dispatch embeds to configured Discord log channels."""
+"""Centralized delivery for Fluffy audit logs."""
+import asyncio
 import logging
 import os
 
@@ -6,40 +7,75 @@ import disnake
 
 logger = logging.getLogger(__name__)
 
+CATEGORY_ENV = {
+    "members": "LOG_CH_MEMBERS",
+    "messages": "LOG_CH_MESSAGES",
+    "tickets": "LOG_CH_TICKETS",
+    "voice": "LOG_CH_VOICE",
+    "mod": "LOG_CH_MOD",
+}
+
 
 class LogDispatcher:
     def __init__(self, bot):
         self.bot = bot
-        self.channels = {
-            "members": int(os.getenv("LOG_CH_MEMBERS", "0") or 0),
-            "messages": int(os.getenv("LOG_CH_MESSAGES", "0") or 0),
-            "tickets": int(os.getenv("LOG_CH_TICKETS", "0") or 0),
-            "voice": int(os.getenv("LOG_CH_VOICE", "0") or 0),
-            "mod": int(os.getenv("LOG_CH_MOD", "0") or 0),
-        }
-        logger.info("LogDispatcher initialized")
+        self.channels = {key: int(os.getenv(env, "0") or 0) for key, env in CATEGORY_ENV.items()}
+        self._locks = {}
 
-    async def send(self, category: str, embed: disnake.Embed) -> None:
-        channel_id = self.channels.get(category)
-        if not channel_id:
-            logger.debug("No log channel configured for category %r", category)
-            return
+    def set_channel(self, category: str, channel_id: int):
+        if category not in CATEGORY_ENV:
+            raise ValueError(f"Unknown log category: {category}")
+        self.channels[category] = max(0, int(channel_id))
 
+    async def _resolve(self, channel_id: int):
         channel = self.bot.get_channel(channel_id)
         if channel is None:
             try:
                 channel = await self.bot.fetch_channel(channel_id)
             except (disnake.NotFound, disnake.Forbidden, disnake.HTTPException):
-                logger.warning("Log channel %s not found or inaccessible", channel_id)
-                return
+                logger.warning("Log channel %s is unavailable", channel_id, exc_info=True)
+                return None
+        if not hasattr(channel, "send") or not hasattr(channel, "permissions_for"):
+            logger.error("Log target %s is not a messageable guild channel", channel_id)
+            return None
+        return channel
+
+    async def send(self, category: str, embed: disnake.Embed = None, *, content: str = None) -> bool:
+        if category not in CATEGORY_ENV:
+            logger.error("Unknown log category %r", category)
+            return False
+        channel_id = self.channels.get(category, 0)
+        if not channel_id:
+            logger.debug("No log channel configured for %s", category)
+            return False
+        channel = await self._resolve(channel_id)
+        if channel is None:
+            return False
 
         guild = getattr(channel, "guild", None)
         me = getattr(guild, "me", None) if guild else None
-        if me is not None and not channel.permissions_for(me).send_messages:
-            logger.warning("No permission to send logs in channel %s", channel_id)
-            return
+        if me:
+            perms = channel.permissions_for(me)
+            if not perms.send_messages or (embed is not None and not perms.embed_links):
+                logger.warning("Missing permissions in log channel %s", channel_id)
+                return False
 
-        try:
-            await channel.send(embed=embed)
-        except (disnake.Forbidden, disnake.HTTPException, AttributeError):
-            logger.exception("Could not send log embed to channel %s", channel_id)
+        lock = self._locks.setdefault(channel_id, asyncio.Lock())
+        async with lock:
+            for attempt in range(3):
+                try:
+                    await channel.send(content=content, embed=embed, allowed_mentions=disnake.AllowedMentions.none())
+                    return True
+                except disnake.Forbidden:
+                    logger.error("Discord denied sending logs to %s", channel_id, exc_info=True)
+                    return False
+                except disnake.HTTPException as exc:
+                    status = getattr(exc, "status", 0)
+                    if attempt == 2 or status not in (429, 500, 502, 503, 504):
+                        logger.exception("Could not send %s log to %s", category, channel_id)
+                        return False
+                    await asyncio.sleep(0.75 * (2 ** attempt))
+                except (AttributeError, TypeError):
+                    logger.exception("Invalid log payload or destination %s", channel_id)
+                    return False
+        return False
