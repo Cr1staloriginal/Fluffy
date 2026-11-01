@@ -10,7 +10,7 @@ Fluffy routes audit events to five dedicated channels. Configure their numeric D
 | LOG_CH_VOICE | 🗣️ Голосовые-каналы |
 | LOG_CH_MOD | 💼 Модерация |
 
-Use 0 or leave a value empty to disable that category. The bot reads these values at startup.
+Use 0 or leave a value empty to let Fluffy auto-detect the channel by the visible name shown above. Auto-detection is used only when exactly one matching text channel is found. If multiple channels match, set the corresponding ID explicitly. The bot reads environment values at startup.
 
 ## Discord permissions
 
