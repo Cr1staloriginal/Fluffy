@@ -15,6 +15,14 @@ CATEGORY_ENV = {
     "mod": "LOG_CH_MOD",
 }
 
+CHANNEL_NAME_HINTS = {
+    "members": ("участники",),
+    "messages": ("сообщения",),
+    "tickets": ("тикеты",),
+    "voice": ("голосовые-каналы", "голосовые каналы", "голосовые"),
+    "mod": ("модерация",),
+}
+
 
 class LogDispatcher:
     def __init__(self, bot):
@@ -46,8 +54,23 @@ class LogDispatcher:
             return False
         channel_id = self.channels.get(category, 0)
         if not channel_id:
-            logger.debug("No log channel configured for %s", category)
-            return False
+            hints = CHANNEL_NAME_HINTS.get(category, ())
+            matches = [
+                channel
+                for guild in self.bot.guilds
+                for channel in guild.text_channels
+                if any(hint in channel.name.casefold() for hint in hints)
+            ]
+            if len(matches) == 1:
+                channel_id = matches[0].id
+                self.channels[category] = channel_id
+                logger.info("Auto-detected %s log channel: %s (%s)", category, matches[0].name, channel_id)
+            elif len(matches) > 1:
+                logger.warning("Multiple possible %s log channels found; set %s explicitly", category, CATEGORY_ENV[category])
+                return False
+            else:
+                logger.debug("No log channel configured or auto-detected for %s", category)
+                return False
         channel = await self._resolve(channel_id)
         if channel is None:
             return False
