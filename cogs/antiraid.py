@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import copy
 import disnake
 from disnake.ext import commands, tasks
@@ -10,6 +11,8 @@ from collections import deque, defaultdict
 from datetime import datetime
 import aiosqlite
 from database import DB_PATH, log_event
+
+logger = logging.getLogger(__name__)
 
 # ---------------------- КОНФИГУРАЦИЯ (на русском) ----------------------
 RAID_CONFIG = {
