@@ -147,7 +147,7 @@ class Warns(commands.Cog):
         embed.set_footer(text=f"ID участника: {user_id}")
 
         view = WarnActionButtons(warn_id, user_id, reason, warn_count)
-        sent = await self.bot.log_dispatcher.send("mod", embed)
+        sent = await self.bot.log_dispatcher.send("mod", embed, view=view)
         if not sent:
             print("[Warns] Не удалось отправить карточку предупреждения в канал модерации")
             return
