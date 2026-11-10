@@ -396,7 +396,6 @@ class Tickets(commands.Cog):
     @commands.slash_command(
         name="ticket_transcript",
         description="📄 Выгрузить переписку текущего тикета в TXT",
-        default_member_permissions=disnake.Permissions(manage_channels=True),
     )
     async def ticket_transcript(self, inter: disnake.ApplicationCommandInteraction):
         if inter.guild is None or not isinstance(inter.channel, disnake.TextChannel):
