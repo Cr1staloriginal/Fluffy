@@ -1,7 +1,7 @@
 import disnake
 from disnake.ext import commands
 import os
-from database import add_warn, remove_warn, get_user_warns, add_moderation_case
+from database import add_warn, remove_warn, get_warn, get_user_warns, add_moderation_case
 from utils.colors import main_color
 
 MOD_LOG_CHANNEL_ID = int(os.getenv("LOG_CH_MOD", 0))
@@ -176,7 +176,21 @@ class Warns(commands.Cog):
     @commands.slash_command(name="снять_варн", description="🗑️ Снять предупреждение по ID", default_member_permissions=disnake.Permissions(moderate_members=True))
     @commands.has_permissions(moderate_members=True)
     async def remove_warn_cmd(self, inter: disnake.ApplicationCommandInteraction, warn_id: int):
+        warning = await get_warn(warn_id)
+        if warning is None:
+            await inter.response.send_message(f"❌ Предупреждение #{warn_id} не найдено.", ephemeral=True)
+            return
+
         if await remove_warn(warn_id):
+            await add_moderation_case(
+                inter.guild.id,
+                int(warning[1]),
+                inter.author.id,
+                "warn_dismissed",
+                str(warning[3] or ""),
+                "slash_command",
+                str(warning[5] or ""),
+            )
             await inter.response.send_message(f"✅ Предупреждение #{warn_id} снято.", ephemeral=True)
         else:
             await inter.response.send_message(f"❌ Предупреждение #{warn_id} не найдено.", ephemeral=True)
