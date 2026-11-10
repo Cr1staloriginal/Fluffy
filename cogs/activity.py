@@ -2,7 +2,17 @@ import disnake
 from disnake.ext import commands
 import time
 import logging
-from database import increment_messages, add_voice_minutes, set_voice_join_time, get_voice_join_time, add_cookies, ensure_user
+import aiosqlite
+
+from database import (
+    DB_PATH,
+    increment_messages,
+    add_voice_minutes,
+    set_voice_join_time,
+    get_voice_join_time,
+    add_cookies,
+    ensure_user,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +20,13 @@ class Activity(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
         logger.info("[Activity] Ког загружен")
+
+    async def cog_load(self):
+        # A process restart breaks the continuity of active voice sessions.
+        # Clear stale start timestamps so offline time is never credited.
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            await db.execute("UPDATE users SET voice_join_time = NULL WHERE voice_join_time IS NOT NULL")
+            await db.commit()
 
     @commands.Cog.listener()
     async def on_message(self, message: disnake.Message):
@@ -49,6 +66,11 @@ class Activity(commands.Cog):
                     await add_voice_minutes(member.id, minutes)
                     logger.debug("[Activity] %s moved voice; minutes +%s", member.id, minutes)
             await set_voice_join_time(member.id, time.time())
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: disnake.Member):
+        # A member leaving while connected must not leave a stale voice timer.
+        await set_voice_join_time(member.id, None)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: disnake.RawReactionActionEvent):
