@@ -1,3 +1,4 @@
+import io
 import logging
 
 import disnake
@@ -9,6 +10,34 @@ from utils.ticket_metadata import build_ticket_topic, parse_ticket_topic
 from utils.ticket_permissions import get_staff_roles, is_staff_member
 
 logger = logging.getLogger(__name__)
+
+
+def render_ticket_transcript(messages, max_chars: int = 1_500_000) -> str:
+    """Render fetched Discord messages into a bounded plain-text transcript."""
+    lines = []
+    current_size = 0
+    for message in messages:
+        author = getattr(message, "author", None)
+        author_name = getattr(author, "display_name", None) or str(author or "Неизвестный автор")
+        created_at = getattr(message, "created_at", None)
+        timestamp = created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at or "время неизвестно")
+        content = (getattr(message, "content", None) or "").strip() or "[без текстового содержимого]"
+        block = [f"[{timestamp}] {author_name} (ID: {getattr(author, 'id', '—')}):", content]
+        attachments = getattr(message, "attachments", ()) or ()
+        for attachment in attachments:
+            block.append(f"  Вложение: {getattr(attachment, 'filename', 'файл')} — {getattr(attachment, 'url', '')}")
+        embeds = getattr(message, "embeds", None) or ()
+        if embeds:
+            block.append(f"  Встроенных объектов: {len(embeds)}")
+        block.append("")
+        block_text = "\n".join(block)
+        if current_size + len(block_text) > max_chars:
+            lines.append("[Транскрипт сокращён: достигнут лимит размера]")
+            break
+        lines.append(block_text)
+        current_size += len(block_text)
+    return "\n".join(lines) or "В тикете пока нет сообщений."
+
 
 TICKET_CATEGORY = "Тикеты"
 CLOSED_CATEGORY_NAME = "Закрытые тикеты"
@@ -363,6 +392,39 @@ class Tickets(commands.Cog):
     def cog_load(self):
         self.bot.add_view(CreateTicketView())
         self.bot.add_view(CloseTicketButton())
+
+    @commands.slash_command(
+        name="ticket_transcript",
+        description="📄 Выгрузить переписку текущего тикета в TXT",
+        default_member_permissions=disnake.Permissions(manage_channels=True),
+    )
+    async def ticket_transcript(self, inter: disnake.ApplicationCommandInteraction):
+        if inter.guild is None or not isinstance(inter.channel, disnake.TextChannel):
+            await inter.response.send_message("❌ Команда доступна только внутри тикета на сервере.", ephemeral=True)
+            return
+        if not is_staff_member(inter.author):
+            await inter.response.send_message("❌ Выгружать транскрипты может только администрация или модерация.", ephemeral=True)
+            return
+        metadata = parse_ticket_topic(inter.channel.topic)
+        if not metadata and not inter.channel.name.startswith("ticket-"):
+            await inter.response.send_message("❌ Эта команда работает только в канале тикета.", ephemeral=True)
+            return
+
+        await inter.response.defer(ephemeral=True)
+        try:
+            messages = [message async for message in inter.channel.history(limit=1000, oldest_first=True)]
+            transcript = render_ticket_transcript(messages)
+            file = disnake.File(
+                fp=io.BytesIO(transcript.encode("utf-8")),
+                filename=f"ticket-{inter.channel.id}-transcript.txt",
+            )
+            await inter.edit_original_response(
+                content=f"📄 Транскрипт тикета **#{inter.channel.name}** готов.",
+                file=file,
+            )
+        except (disnake.Forbidden, disnake.HTTPException, OSError):
+            logger.exception("Не удалось сформировать транскрипт тикета channel=%s", inter.channel.id)
+            await inter.edit_original_response(content="❌ Не удалось выгрузить транскрипт. Проверьте доступ бота к истории канала.")
 
     @commands.slash_command(
         name="setup_tickets",
