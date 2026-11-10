@@ -69,10 +69,16 @@ def validate_backup_document(document, expected_guild_id: int) -> tuple[bool, st
         if not isinstance(document.get(key), list):
             return False, f"поле «{key}» отсутствует или имеет неверный формат"
 
-    version = document.get("format_version", 1)
-    if not isinstance(version, int) or version < 1 or version > BACKUP_FORMAT_VERSION:
+    # Only files with no version marker are legacy. An explicit downgrade
+    # must never bypass the integrity check for a versioned backup.
+    if "format_version" not in document:
+        if "integrity" in document:
+            return False, "у бэкапа есть контрольная сумма, но отсутствует версия формата"
+        return True, "legacy"
+    version = document.get("format_version")
+    if not isinstance(version, int) or version != BACKUP_FORMAT_VERSION:
         return False, "неподдерживаемая версия формата бэкапа"
-    if version >= 2:
+    if version == BACKUP_FORMAT_VERSION:
         integrity = document.get("integrity")
         if not isinstance(integrity, dict) or integrity.get("algorithm") != "sha256":
             return False, "отсутствует контрольная сумма бэкапа"
@@ -495,10 +501,15 @@ class AntiRaid(commands.Cog):
             await inter.edit_original_response(f"❌ Проверка не пройдена: {message}.")
             return
 
-        version = data.get("format_version", 1)
+        version = data.get("format_version")
+        validation_label = (
+            "Проверка целостности: **успешна**"
+            if version == BACKUP_FORMAT_VERSION
+            else "Формат legacy: структура проверена, контрольной суммы нет"
+        )
         embed = disnake.Embed(
             title="🔎 Предпросмотр бэкапа",
-            description=f"`{имя_файла}`\nПроверка целостности: **успешна**",
+            description=f"`{имя_файла}`\n{validation_label}",
             color=disnake.Color.green(),
             timestamp=disnake.utils.utcnow(),
         )
