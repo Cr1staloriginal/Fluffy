@@ -100,6 +100,19 @@ async def init_db() -> None:
             )
         """)
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS moderation_cases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id INTEGER NOT NULL,
+                target_id INTEGER NOT NULL,
+                moderator_id INTEGER NOT NULL DEFAULT 0,
+                action TEXT NOT NULL,
+                reason TEXT NOT NULL DEFAULT '',
+                source TEXT DEFAULT '',
+                message_link TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS birthdays (
                 user_id INTEGER PRIMARY KEY,
                 birthday TEXT NOT NULL,
@@ -156,6 +169,8 @@ async def init_db() -> None:
 
         # Index frequently-filtered columns without changing existing records.
         await db.execute("CREATE INDEX IF NOT EXISTS idx_warns_user_date ON warns(user_id, date DESC)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_moderation_cases_target_date ON moderation_cases(guild_id, target_id, created_at DESC)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_moderation_cases_moderator_date ON moderation_cases(guild_id, moderator_id, created_at DESC)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_birthdays_date ON birthdays(birthday)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_suggestions_status_created ON suggestions(status, created_at)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_logs_event_created ON logs(event_type, created_at)")
@@ -355,6 +370,56 @@ async def remove_warn(warn_id: int) -> bool:
         cursor = await db.execute("DELETE FROM warns WHERE id = ?", (warn_id,))
         await db.commit()
         return cursor.rowcount > 0
+
+
+async def add_moderation_case(
+    guild_id: int,
+    target_id: int,
+    moderator_id: int,
+    action: str,
+    reason: str = "",
+    source: str = "",
+    message_link: str = "",
+) -> int:
+    """Append an immutable moderation-history entry and return its case ID."""
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        cursor = await db.execute(
+            """INSERT INTO moderation_cases
+               (guild_id, target_id, moderator_id, action, reason, source, message_link)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                int(guild_id), int(target_id), int(moderator_id),
+                str(action)[:40], str(reason)[:2000], str(source)[:120],
+                str(message_link)[:500],
+            ),
+        )
+        await db.commit()
+        return int(cursor.lastrowid)
+
+
+async def get_moderation_case(guild_id: int, case_id: int):
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute(
+            """SELECT id, guild_id, target_id, moderator_id, action, reason,
+                      source, message_link, created_at
+               FROM moderation_cases WHERE guild_id = ? AND id = ?""",
+            (int(guild_id), int(case_id)),
+        ) as cur:
+            return await cur.fetchone()
+
+
+async def get_user_moderation_cases(guild_id: int, target_id: int, limit: int = 10):
+    safe_limit = max(1, min(int(limit), 25))
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute(
+            """SELECT id, guild_id, target_id, moderator_id, action, reason,
+                      source, message_link, created_at
+               FROM moderation_cases
+               WHERE guild_id = ? AND target_id = ?
+               ORDER BY id DESC LIMIT ?""",
+            (int(guild_id), int(target_id), safe_limit),
+        ) as cur:
+            return await cur.fetchall()
 
 
 # ========== ДНИ РОЖДЕНИЯ ==========
