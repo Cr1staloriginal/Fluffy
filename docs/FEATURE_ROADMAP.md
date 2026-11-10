@@ -57,8 +57,9 @@ This roadmap expands the systems already present in Fluffy. Work is delivered in
 
 ## Phase 6 — Backups and recovery
 
-- [ ] Add versioned backups and integrity metadata.
-- [ ] Add restore previews and category-level restore options where safe.
+- [x] Add versioned backups with SHA-256 integrity metadata and legacy-backup compatibility.
+- [x] Add a read-only backup preview command with integrity validation.
+- [ ] Add category-level restore options where safe.
 - [ ] Add restore audit events and confirmation gates.
 - [ ] Test recovery against a disposable database copy.
 
