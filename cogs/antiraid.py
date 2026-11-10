@@ -498,6 +498,11 @@ class AntiRaid(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def show_config(self, inter: disnake.ApplicationCommandInteraction):
         embed = disnake.Embed(title="🛡️ Настройки анти-рейда", color=disnake.Color.blurple())
+        embed.add_field(
+            name="Автоматические наказания",
+            value="✅ Включены" if self.auto_punish_enabled else "📝 Только журналирование",
+            inline=False,
+        )
         for action, cfg in self.config.items():
             status = "✅ Вкл" if cfg["limit"] > 0 else "❌ Выкл"
             punishment_map = {
