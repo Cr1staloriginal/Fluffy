@@ -14,6 +14,11 @@ if not DB_PATH.is_absolute():
 async def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(str(DB_PATH)) as db:
+        # WAL improves read/write concurrency for the bot's many short-lived connections.
+        await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA synchronous=NORMAL")
+        await db.execute("PRAGMA busy_timeout=5000")
+
         # ===== ТАБЛИЦА users =====
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -148,6 +153,14 @@ async def init_db() -> None:
                 UNIQUE(guild_id, name)
             )
         """)
+
+        # Index frequently-filtered columns without changing existing records.
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_warns_user_date ON warns(user_id, date DESC)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_birthdays_date ON birthdays(birthday)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_suggestions_status_created ON suggestions(status, created_at)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_logs_event_created ON logs(event_type, created_at)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_tickets_user_status ON tickets(user_id, status)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_phrases_season ON phrases(season)")
         await db.commit()
 
     await load_phrases_from_file()
