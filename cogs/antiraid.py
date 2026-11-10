@@ -5,6 +5,7 @@ import disnake
 from disnake.ext import commands, tasks
 import time
 import json
+import hashlib
 import datetime
 import os
 from collections import deque, defaultdict
@@ -37,6 +38,48 @@ def is_auto_punish_enabled(value: str | None = None) -> bool:
 # Destructive actions are opt-in. Enable explicitly only after testing permissions
 # and role hierarchy on a separate Discord server.
 ANTIRAID_AUTO_PUNISH = is_auto_punish_enabled()
+
+BACKUP_FORMAT_VERSION = 2
+
+
+def _backup_digest(payload: dict) -> str:
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def build_backup_document(payload: dict) -> dict:
+    """Wrap a guild snapshot in a versioned document with a SHA-256 integrity digest."""
+    document = copy.deepcopy(payload)
+    document["format_version"] = BACKUP_FORMAT_VERSION
+    document.pop("integrity", None)
+    document["integrity"] = {
+        "algorithm": "sha256",
+        "digest": _backup_digest(document),
+    }
+    return document
+
+
+def validate_backup_document(document, expected_guild_id: int) -> tuple[bool, str]:
+    """Validate legacy and versioned backups before any restore-side effects."""
+    if not isinstance(document, dict):
+        return False, "корень бэкапа должен быть JSON-объектом"
+    if document.get("id_сервера") != expected_guild_id:
+        return False, "бэкап принадлежит другому серверу"
+    for key in ("категории", "каналы", "роли"):
+        if not isinstance(document.get(key), list):
+            return False, f"поле «{key}» отсутствует или имеет неверный формат"
+
+    version = document.get("format_version", 1)
+    if not isinstance(version, int) or version < 1 or version > BACKUP_FORMAT_VERSION:
+        return False, "неподдерживаемая версия формата бэкапа"
+    if version >= 2:
+        integrity = document.get("integrity")
+        if not isinstance(integrity, dict) or integrity.get("algorithm") != "sha256":
+            return False, "отсутствует контрольная сумма бэкапа"
+        payload = {key: value for key, value in document.items() if key != "integrity"}
+        if integrity.get("digest") != _backup_digest(payload):
+            return False, "контрольная сумма не совпадает; файл мог быть повреждён"
+    return True, "ok"
 
 # ---------------------- ОСНОВНОЙ КОГ ----------------------
 class AntiRaid(commands.Cog):
@@ -307,6 +350,7 @@ class AntiRaid(commands.Cog):
         filename = f"backup_{guild.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         filepath = os.path.join(backup_dir, filename)
 
+        data = build_backup_document(data)
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
@@ -346,11 +390,16 @@ class AntiRaid(commands.Cog):
             await inter.edit_original_response("❌ Файл бэкапа не найден.")
             return
 
-        with open(filepath, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            await inter.edit_original_response("❌ Не удалось прочитать JSON-файл бэкапа.")
+            return
 
-        if data["id_сервера"] != guild.id:
-            await inter.edit_original_response("❌ Этот бэкап не принадлежит текущему серверу.")
+        valid, validation_message = validate_backup_document(data, guild.id)
+        if not valid:
+            await inter.edit_original_response(f"❌ Бэкап не прошёл проверку: {validation_message}.")
             return
 
         # Словарь для сопоставления старых ID категорий с новыми
