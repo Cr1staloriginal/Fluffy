@@ -43,6 +43,7 @@ class AntiRaid(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
         self.config = copy.deepcopy(RAID_CONFIG)
+        self.auto_punish_enabled = ANTIRAID_AUTO_PUNISH
         self.trackers = {
             "создание_каналов": defaultdict(deque),
             "изменение_каналов": defaultdict(deque),
@@ -67,6 +68,18 @@ class AntiRaid(commands.Cog):
                     punishment TEXT NOT NULL
                 )
             """)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS antiraid_settings (
+                    setting_key TEXT PRIMARY KEY,
+                    setting_value TEXT NOT NULL
+                )
+            """)
+            async with db.execute(
+                "SELECT setting_value FROM antiraid_settings WHERE setting_key='auto_punish_enabled'"
+            ) as settings_cur:
+                setting_row = await settings_cur.fetchone()
+                if setting_row is not None:
+                    self.auto_punish_enabled = str(setting_row[0]).strip().lower() == "true"
             async with db.execute(
                 "SELECT action_type, limit_value, time_window, punishment FROM antiraid_config"
             ) as cur:
@@ -77,6 +90,16 @@ class AntiRaid(commands.Cog):
                             "time_window": max(1, min(int(time_window), 300)),
                             "punishment": punishment,
                         }
+            await db.commit()
+
+    async def save_auto_punish_setting(self, enabled: bool):
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            await db.execute(
+                """INSERT INTO antiraid_settings(setting_key, setting_value)
+                   VALUES ('auto_punish_enabled', ?)
+                   ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value""",
+                ("true" if enabled else "false",),
+            )
             await db.commit()
 
     async def save_config(self):
@@ -198,7 +221,7 @@ class AntiRaid(commands.Cog):
             await self.log_raid(guild, action_type, actor, "пропущено: владелец сервера")
             return
 
-        if not ANTIRAID_AUTO_PUNISH:
+        if not self.auto_punish_enabled:
             await self.log_raid(guild, action_type, actor, "только журналирование — включите ANTIRAID_AUTO_PUNISH=true")
             return
 
@@ -475,6 +498,11 @@ class AntiRaid(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def show_config(self, inter: disnake.ApplicationCommandInteraction):
         embed = disnake.Embed(title="🛡️ Настройки анти-рейда", color=disnake.Color.blurple())
+        embed.add_field(
+            name="Автоматические наказания",
+            value="✅ Включены" if self.auto_punish_enabled else "📝 Только журналирование",
+            inline=False,
+        )
         for action, cfg in self.config.items():
             status = "✅ Вкл" if cfg["limit"] > 0 else "❌ Выкл"
             punishment_map = {
@@ -487,6 +515,51 @@ class AntiRaid(commands.Cog):
                 inline=True
             )
         await inter.response.send_message(embed=embed, ephemeral=True)
+
+    @antiraid.sub_command(
+        name="автонаказания",
+        description="Включить или выключить автоматические наказания анти-рейда",
+    )
+    @commands.has_permissions(administrator=True)
+    async def set_auto_punish(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+        включить: bool,
+        подтвердить: bool = False,
+    ):
+        if включить and not подтвердить:
+            await inter.response.send_message(
+                "⚠️ Автонаказания могут автоматически кикать или выдавать тайм-аут. "
+                "Для включения повторите команду с `подтвердить: Да` после проверки прав бота и иерархии ролей.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            await self.save_auto_punish_setting(включить)
+        except Exception:
+            logger.exception("Не удалось сохранить режим автонаказаний анти-рейда")
+            await inter.response.send_message(
+                "❌ Не удалось сохранить настройку. Текущий режим не изменён.",
+                ephemeral=True,
+            )
+            return
+
+        # Apply the new mode only after SQLite confirms the setting was committed.
+        self.auto_punish_enabled = включить
+        try:
+            await log_event(
+                "antiraid_auto_punish",
+                f"{inter.guild.id if inter.guild else 0}|{inter.author.id}|{str(включить).lower()}",
+            )
+        except Exception:
+            logger.exception("Не удалось сохранить изменение режима автонаказаний в журнал")
+        status = "ВКЛЮЧЕНЫ" if включить else "ВЫКЛЮЧЕНЫ"
+        await inter.response.send_message(
+            f"🛡️ Автоматические наказания анти-рейда: **{status}**. "
+            "При выключении система продолжает фиксировать подозрительные действия.",
+            ephemeral=True,
+        )
 
     @antiraid.sub_command(name="сброс", description="Сбросить все настройки к значениям по умолчанию")
     @commands.has_permissions(administrator=True)

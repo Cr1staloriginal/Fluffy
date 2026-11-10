@@ -30,6 +30,10 @@ class AntiRaidConfigTests(unittest.TestCase):
         self.assertTrue(is_auto_punish_enabled("true"))
         self.assertTrue(is_auto_punish_enabled("1"))
 
+    def test_unknown_environment_values_fail_closed(self):
+        for value in ("", "enabled", "yes-maybe", "2"):
+            self.assertFalse(is_auto_punish_enabled(value))
+
 
 if __name__ == "__main__":
     unittest.main()

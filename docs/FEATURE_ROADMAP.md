@@ -37,7 +37,8 @@ This roadmap expands the systems already present in Fluffy. Work is delivered in
 
 - [ ] Add per-channel and per-role rule exclusions.
 - [ ] Add configurable warning/escalation policies.
-- [ ] Add adaptive raid thresholds with safe defaults and manual override.
+- [x] Add an administrator-controlled, persisted runtime override for automatic punishments with an explicit confirmation gate.
+- [ ] Add adaptive raid thresholds and a temporary lockdown mode with a clear recovery path.
 - [ ] Add a temporary lockdown mode with a clear recovery path.
 - [ ] Add reasoned moderation records and regression tests.
 
