@@ -133,6 +133,49 @@ class Logs(commands.Cog):
         await log_event("message_delete", f"{message.author.id}|{message.id}|{message.content or ''}")
 
     @commands.Cog.listener()
+    async def on_raw_message_delete(self, payload: disnake.RawMessageDeleteEvent):
+        # Cached deletes are already handled by on_message_delete with full content.
+        if payload.guild_id is None or payload.cached_message is not None:
+            return
+        channel = self.bot.get_channel(payload.channel_id)
+        channel_label = getattr(channel, "mention", f"канал {payload.channel_id}")
+        embed = disnake.Embed(
+            title="🗑️ Сообщение удалено (не было в кеше)",
+            description="Discord сообщил об удалении, но содержимое сообщения недоступно в кеше бота.",
+            color=disnake.Color.orange(),
+            timestamp=disnake.utils.utcnow(),
+        )
+        embed.add_field(name="Канал", value=channel_label, inline=False)
+        embed.set_footer(text=f"Сообщение ID: {payload.message_id}")
+        await self.bot.log_dispatcher.send("messages", embed)
+        await log_event("message_delete_uncached", f"{payload.guild_id}|{payload.channel_id}|{payload.message_id}")
+
+    @commands.Cog.listener()
+    async def on_raw_bulk_message_delete(self, payload: disnake.RawBulkMessageDeleteEvent):
+        if payload.guild_id is None:
+            return
+        cached_count = len(getattr(payload, "cached_messages", ()) or ())
+        missing_count = len(payload.message_ids) - cached_count
+        if missing_count <= 0:
+            return
+        channel = self.bot.get_channel(payload.channel_id)
+        channel_label = getattr(channel, "mention", f"канал {payload.channel_id}")
+        embed = disnake.Embed(
+            title="🧹 Массовое удаление (часть сообщений не в кеше)",
+            description="Для части удалённых сообщений содержимое недоступно.",
+            color=disnake.Color.dark_orange(),
+            timestamp=disnake.utils.utcnow(),
+        )
+        embed.add_field(name="Всего удалено", value=str(len(payload.message_ids)), inline=True)
+        embed.add_field(name="Не было в кеше", value=str(missing_count), inline=True)
+        embed.add_field(name="Канал", value=channel_label, inline=False)
+        await self.bot.log_dispatcher.send("messages", embed)
+        await log_event(
+            "message_bulk_delete_uncached",
+            f"{payload.guild_id}|{payload.channel_id}|{len(payload.message_ids)}|{missing_count}",
+        )
+
+    @commands.Cog.listener()
     async def on_message_edit(self, before: disnake.Message, after: disnake.Message):
         if before.guild is None or before.author is None or before.author.bot:
             return
