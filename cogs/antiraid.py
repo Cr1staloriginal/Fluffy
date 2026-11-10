@@ -92,13 +92,13 @@ class AntiRaid(commands.Cog):
                         }
             await db.commit()
 
-    async def save_auto_punish_setting(self):
+    async def save_auto_punish_setting(self, enabled: bool):
         async with aiosqlite.connect(str(DB_PATH)) as db:
             await db.execute(
                 """INSERT INTO antiraid_settings(setting_key, setting_value)
                    VALUES ('auto_punish_enabled', ?)
                    ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value""",
-                ("true" if self.auto_punish_enabled else "false",),
+                ("true" if enabled else "false",),
             )
             await db.commit()
 
@@ -535,8 +535,18 @@ class AntiRaid(commands.Cog):
             )
             return
 
+        try:
+            await self.save_auto_punish_setting(включить)
+        except Exception:
+            logger.exception("Не удалось сохранить режим автонаказаний анти-рейда")
+            await inter.response.send_message(
+                "❌ Не удалось сохранить настройку. Текущий режим не изменён.",
+                ephemeral=True,
+            )
+            return
+
+        # Apply the new mode only after SQLite confirms the setting was committed.
         self.auto_punish_enabled = включить
-        await self.save_auto_punish_setting()
         try:
             await log_event(
                 "antiraid_auto_punish",
