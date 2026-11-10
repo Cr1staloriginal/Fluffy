@@ -4,6 +4,7 @@ import aiosqlite
 import os
 from database import DB_PATH
 from utils.colors import main_color
+from utils.ticket_permissions import is_staff_member
 
 STAFF_ROLE_NAMES = [
     "🦊 Хвостик порядка",
@@ -158,7 +159,7 @@ class SuggestionView(disnake.ui.View):
     @disnake.ui.button(label="🔧 Принять решение", style=disnake.ButtonStyle.primary, custom_id="fluffy:suggestion:resolve")
     async def resolve_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         member = inter.author
-        is_staff = any(role.name in STAFF_ROLE_NAMES for role in member.roles) or member.guild_permissions.administrator
+        is_staff = is_staff_member(member) or any(role.name in STAFF_ROLE_NAMES for role in member.roles)
         if not is_staff:
             await inter.response.send_message("❌ Только персонал может принимать решения.", ephemeral=True)
             return

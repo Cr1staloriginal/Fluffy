@@ -4,6 +4,7 @@ import os
 import aiosqlite
 from database import DB_PATH, log_event
 from utils.colors import main_color, accent_color
+from utils.ticket_permissions import is_staff_member
 
 # Переменные из .env
 SUBMIT_CHANNEL_ID = int(os.getenv("VERIFY_SUBMIT_CHANNEL_ID", 0))
@@ -135,13 +136,14 @@ class VerificationActions(disnake.ui.View):
         self.user_name = user_name
 
     async def interaction_check(self, interaction: disnake.MessageInteraction) -> bool:
-        member = interaction.guild.get_member(interaction.user.id)
-        if not member:
-            await interaction.response.send_message("❌ Вы не найдены на сервере.", ephemeral=True)
+        if interaction.guild is None:
+            await interaction.response.send_message("❌ Действие доступно только на сервере.", ephemeral=True)
             return False
-        is_staff = any(role.name in STAFF_ROLE_NAMES for role in member.roles) or member.guild_permissions.administrator
-        if not is_staff:
-            await interaction.response.send_message("❌ Только модерация может обрабатывать заявки.", ephemeral=True)
+        member = interaction.author
+        if not isinstance(member, disnake.Member) or not (
+            is_staff_member(member) or any(role.name in STAFF_ROLE_NAMES for role in member.roles)
+        ):
+            await interaction.response.send_message("❌ Обрабатывать заявки может только администрация или модерация.", ephemeral=True)
             return False
         return True
 

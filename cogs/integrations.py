@@ -40,7 +40,7 @@ def _parse_list(raw: str | None) -> list[str]:
 class Integrations(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
         self.bot = bot
-        self._busy = False
+        self._poll_lock = asyncio.Lock()
 
     async def cog_load(self):
         self.poll_updates.start()
@@ -66,7 +66,15 @@ class Integrations(commands.Cog):
             except (disnake.NotFound, disnake.Forbidden, disnake.HTTPException):
                 logger.warning("Интеграции: канал %s недоступен на сервере %s", channel_id, guild.id)
                 return
-        if not hasattr(channel, "send"):
+        if not hasattr(channel, "send") or getattr(getattr(channel, "guild", None), "id", None) != guild.id:
+            logger.warning("Интеграции: канал %s не принадлежит серверу %s", channel_id, guild.id)
+            return
+        bot_member = guild.me
+        if bot_member is None:
+            return
+        permissions = channel.permissions_for(bot_member)
+        if not permissions.send_messages or not permissions.embed_links:
+            logger.warning("Интеграции: у бота нет прав отправки Embed в канал %s", channel_id)
             return
         embed = disnake.Embed(title=title[:256], description=details[:3500] or None, url=url, color=main_color())
         embed.set_author(name=platform)
@@ -188,16 +196,13 @@ class Integrations(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def poll_updates(self):
-        if self._busy:
+        if self._poll_lock.locked():
             return
-        self._busy = True
-        try:
+        async with self._poll_lock:
             for guild in list(self.bot.guilds):
                 await self._youtube(guild)
                 await self._twitch(guild)
                 await self._vk(guild)
-        finally:
-            self._busy = False
 
     @poll_updates.before_loop
     async def before_poll(self):
@@ -288,10 +293,14 @@ class Integrations(commands.Cog):
         if inter.guild is None:
             await inter.response.send_message("Команда доступна только на сервере.", ephemeral=True)
             return
+        if self._poll_lock.locked():
+            await inter.response.send_message("⏳ Проверка интеграций уже выполняется. Попробуй немного позже.", ephemeral=True)
+            return
         await inter.response.defer(ephemeral=True)
-        await self._youtube(inter.guild)
-        await self._twitch(inter.guild)
-        await self._vk(inter.guild)
+        async with self._poll_lock:
+            await self._youtube(inter.guild)
+            await self._twitch(inter.guild)
+            await self._vk(inter.guild)
         await inter.followup.send("✅ Проверка завершена. Если найдено новое событие, уведомление отправлено в настроенный канал.", ephemeral=True)
 
 
