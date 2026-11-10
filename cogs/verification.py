@@ -139,8 +139,10 @@ class VerificationActions(disnake.ui.View):
         if interaction.guild is None:
             await interaction.response.send_message("❌ Действие доступно только на сервере.", ephemeral=True)
             return False
-        member = interaction.guild.get_member(interaction.author.id)
-        if member is None or not (is_staff_member(member) or any(role.name in STAFF_ROLE_NAMES for role in member.roles)):
+        member = interaction.author
+        if not isinstance(member, disnake.Member) or not (
+            is_staff_member(member) or any(role.name in STAFF_ROLE_NAMES for role in member.roles)
+        ):
             await interaction.response.send_message("❌ Обрабатывать заявки может только администрация или модерация.", ephemeral=True)
             return False
         return True
