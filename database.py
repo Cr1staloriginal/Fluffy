@@ -380,6 +380,13 @@ async def get_user_warns(user_id: int) -> list:
             return await cur.fetchall()
 
 
+async def get_warn(warn_id: int):
+    """Return a warning row before it is removed, or None when it does not exist."""
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        async with db.execute("SELECT * FROM warns WHERE id = ?", (warn_id,)) as cur:
+            return await cur.fetchone()
+
+
 async def remove_warn(warn_id: int) -> bool:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         cursor = await db.execute("DELETE FROM warns WHERE id = ?", (warn_id,))
