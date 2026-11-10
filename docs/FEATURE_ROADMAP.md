@@ -31,7 +31,8 @@ This roadmap expands the systems already present in Fluffy. Work is delivered in
 - [x] Add append-only moderation case history with guild-scoped case IDs.
 - [x] Add staff-only /cases and /case commands.
 - [x] Backfill existing warning records into case history once without deleting the original warnings.
-- [x] Add per-event log channel routing with category fallback.\n- [x] Retry transient Discord delivery failures with bounded exponential backoff and jitter (delivery remains best-effort; no persistent queue).
+- [x] Add per-event log channel routing with category fallback.
+- [x] Retry transient Discord delivery failures with bounded exponential backoff and jitter (delivery remains best-effort; no persistent queue).
 - [ ] Add tests for duplicate-event suppression and permission boundaries.
 
 ## Phase 3 — Automod and anti-raid
