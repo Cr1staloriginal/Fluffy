@@ -26,8 +26,10 @@ This roadmap expands the systems already present in Fluffy. Work is delivered in
 ## Phase 2 — Logs and moderation audit
 
 - [ ] Add consistent event metadata and actor/target fields.
-- [ ] Add audit-log correlation for role, channel, timeout, kick, and ban events.
-- [ ] Add moderation case history and searchable case IDs.
+- [x] Audit-log correlation for role, channel, timeout, kick, and ban events is present in the existing audit cog.
+- [x] Add append-only moderation case history with guild-scoped case IDs.
+- [x] Add staff-only /cases and /case commands.
+- [x] Backfill existing warning records into case history once without deleting the original warnings.
 - [ ] Add log delivery retry handling and per-event channel routing.
 - [ ] Add tests for duplicate-event suppression and permission boundaries.
 
