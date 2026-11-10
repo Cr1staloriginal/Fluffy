@@ -1,6 +1,7 @@
 import disnake
 from disnake.ext import commands
 import os
+import datetime
 import aiosqlite
 from database import DB_PATH, log_event
 from utils.colors import main_color, accent_color
@@ -16,6 +17,35 @@ GUILD_ID = int(os.getenv("GUILD_ID", 0))
 STAFF_ROLE_NAMES = [
     "⛑️Верификатор",
 ]
+
+
+def is_submission_cooldown_active(submitted_at, now=None, cooldown_seconds: int = 60) -> bool:
+    """Check the pending-application cooldown; malformed timestamps fail open."""
+    if not submitted_at or cooldown_seconds <= 0:
+        return False
+    try:
+        submitted = (
+            submitted_at
+            if isinstance(submitted_at, datetime.datetime)
+            else datetime.datetime.fromisoformat(str(submitted_at).replace("Z", "+00:00"))
+        )
+        if submitted.tzinfo is None:
+            current = now or datetime.datetime.utcnow()
+        else:
+            current = now or datetime.datetime.now(datetime.timezone.utc)
+            if current.tzinfo is None:
+                current = current.replace(tzinfo=datetime.timezone.utc)
+        elapsed = (current - submitted).total_seconds()
+        return 0 <= elapsed < cooldown_seconds
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
+def verification_cooldown_seconds() -> int:
+    try:
+        return max(10, min(int(os.getenv("VERIFY_SUBMISSION_COOLDOWN_SECONDS", "60")), 3600))
+    except (TypeError, ValueError):
+        return 60
 
 async def init_verification_table():
     async with aiosqlite.connect(str(DB_PATH)) as db:
@@ -40,7 +70,7 @@ async def save_application(user_id: int, message_id: int, channel_id: int):
 
 async def get_application(user_id: int):
     async with aiosqlite.connect(str(DB_PATH)) as db:
-        async with db.execute("SELECT message_id, channel_id, status FROM verification_applications WHERE user_id = ?", (user_id,)) as cur:
+        async with db.execute("SELECT message_id, channel_id, status, submitted_at FROM verification_applications WHERE user_id = ?", (user_id,)) as cur:
             return await cur.fetchone()
 
 async def delete_application(user_id: int):
@@ -80,7 +110,13 @@ class VerificationModal(disnake.ui.Modal):
         # Если есть старая заявка, удаляем её
         existing = await get_application(interaction.author.id)
         if existing:
-            old_msg_id, old_channel_id, status = existing
+            old_msg_id, old_channel_id, status, submitted_at = existing
+            cooldown = verification_cooldown_seconds()
+            if status == "pending" and is_submission_cooldown_active(submitted_at, cooldown_seconds=cooldown):
+                await interaction.edit_original_response(
+                    content=f"⏳ Заявка уже отправлена. Повторная отправка будет доступна примерно через {cooldown} секунд."
+                )
+                return
             if status == "pending":
                 old_channel = interaction.bot.get_channel(old_channel_id)
                 if old_channel:
