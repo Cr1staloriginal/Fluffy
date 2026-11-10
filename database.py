@@ -109,9 +109,24 @@ async def init_db() -> None:
                 reason TEXT NOT NULL DEFAULT '',
                 source TEXT DEFAULT '',
                 message_link TEXT DEFAULT '',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                source_ref TEXT UNIQUE
             )
         """)
+        # Import pre-existing warnings once so the new case history is useful immediately.
+        legacy_guild_id = int(os.getenv("GUILD_ID", "0") or 0)
+        await db.execute(
+            """INSERT OR IGNORE INTO moderation_cases
+               (guild_id, target_id, moderator_id, action, reason, source,
+                message_link, created_at, source_ref)
+               SELECT ?, user_id, moderator_id, 'warn', COALESCE(reason, ''),
+                      COALESCE(rule_name, 'legacy warning'),
+                      COALESCE(message_link, ''),
+                      COALESCE(date, CURRENT_TIMESTAMP),
+                      'legacy_warn:' || id
+               FROM warns""",
+            (legacy_guild_id,),
+        )
         await db.execute("""
             CREATE TABLE IF NOT EXISTS birthdays (
                 user_id INTEGER PRIMARY KEY,
