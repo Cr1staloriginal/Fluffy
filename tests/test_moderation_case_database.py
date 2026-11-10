@@ -32,6 +32,16 @@ class ModerationCaseDatabaseTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row[4], "timeout")
         self.assertIsNone(await database.get_moderation_case(99999, case_id))
 
+    async def test_get_warn_returns_details_before_removal(self):
+        warn_id = await database.add_warn(777, 888, "Test reason", "automod", "https://discord.com/channels/1/2/3")
+        warning = await database.get_warn(warn_id)
+        self.assertIsNotNone(warning)
+        self.assertEqual(warning[1], 777)
+        self.assertEqual(warning[2], 888)
+        self.assertEqual(warning[3], "Test reason")
+        self.assertEqual(warning[5], "https://discord.com/channels/1/2/3")
+        self.assertIsNone(await database.get_warn(999999))
+
     async def test_existing_warns_are_backfilled_once(self):
         async with aiosqlite.connect(str(database.DB_PATH)) as db:
             await db.execute(
