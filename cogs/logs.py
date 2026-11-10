@@ -52,7 +52,7 @@ class Logs(commands.Cog):
         embed.add_field(name="Создан аккаунт", value=disnake.utils.format_dt(member.created_at, "F"), inline=False)
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.set_footer(text=f"Участников на сервере: {member.guild.member_count or '—'}")
-        await self.bot.log_dispatcher.send("members", embed)
+        await self.bot.log_dispatcher.send("members", embed, event="member_join")
         await log_event("member_join", str(member.id))
 
     @commands.Cog.listener()
@@ -70,7 +70,7 @@ class Logs(commands.Cog):
             embed.set_footer(text="Событие сопоставлено с Audit Log: вероятно, Kick")
         else:
             embed.set_footer(text="Выход или Kick — инициатор не подтверждён")
-        await self.bot.log_dispatcher.send("members", embed)
+        await self.bot.log_dispatcher.send("members", embed, event="member_remove")
         await log_event("member_remove", str(member.id))
 
     @commands.Cog.listener()
@@ -80,7 +80,7 @@ class Logs(commands.Cog):
             embed.add_field(name="Участник", value=f"{after.mention} ({after.id})", inline=False)
             embed.add_field(name="Было", value=_value(before.display_name), inline=False)
             embed.add_field(name="Стало", value=_value(after.display_name), inline=False)
-            await self.bot.log_dispatcher.send("members", embed)
+            await self.bot.log_dispatcher.send("members", embed, event="member_nickname")
             await log_event("member_nickname", f"{after.id}|{before.display_name}->{after.display_name}")
 
         if before.roles != after.roles:
@@ -98,14 +98,14 @@ class Logs(commands.Cog):
                 value=f"{actor.mention} ({actor.id})" if actor else "Не удалось достоверно определить",
                 inline=False,
             )
-            await self.bot.log_dispatcher.send("members", embed)
+            await self.bot.log_dispatcher.send("members", embed, event="member_roles")
             await log_event("member_roles", f"{after.id}|+{','.join(str(r.id) for r in added)}|-{','.join(str(r.id) for r in removed)}")
 
         if before.avatar != after.avatar:
             embed = disnake.Embed(title="🖼️ Изменён аватар участника", color=main_color(), timestamp=disnake.utils.utcnow())
             embed.add_field(name="Участник", value=f"{after.mention} ({after.id})", inline=False)
             embed.set_thumbnail(url=after.display_avatar.url)
-            await self.bot.log_dispatcher.send("members", embed)
+            await self.bot.log_dispatcher.send("members", embed, event="member_avatar")
             await log_event("member_avatar", str(after.id))
 
         if before.timed_out_until != after.timed_out_until:
@@ -113,7 +113,7 @@ class Logs(commands.Cog):
             embed.add_field(name="Участник", value=f"{after.mention} ({after.id})", inline=False)
             until = disnake.utils.format_dt(after.timed_out_until, "F") if after.timed_out_until else "Timeout отсутствует"
             embed.add_field(name="Состояние", value=until, inline=False)
-            await self.bot.log_dispatcher.send("mod", embed)
+            await self.bot.log_dispatcher.send("mod", embed, event="member_timeout_state")
             await log_event("member_timeout_state", f"{after.id}|{after.timed_out_until}")
 
     @commands.Cog.listener()
@@ -129,7 +129,7 @@ class Logs(commands.Cog):
         if message.embeds:
             embed.add_field(name="Встроенные объекты", value=f"Количество: {len(message.embeds)}", inline=False)
         embed.set_footer(text=f"Сообщение ID: {message.id}")
-        await self.bot.log_dispatcher.send("messages", embed)
+        await self.bot.log_dispatcher.send("messages", embed, event="message_delete")
         await log_event("message_delete", f"{message.author.id}|{message.id}|{message.content or ''}")
 
     @commands.Cog.listener()
@@ -147,7 +147,7 @@ class Logs(commands.Cog):
         )
         embed.add_field(name="Канал", value=channel_label, inline=False)
         embed.set_footer(text=f"Сообщение ID: {payload.message_id}")
-        await self.bot.log_dispatcher.send("messages", embed)
+        await self.bot.log_dispatcher.send("messages", embed, event="message_delete_uncached")
         await log_event("message_delete_uncached", f"{payload.guild_id}|{payload.channel_id}|{payload.message_id}")
 
     @commands.Cog.listener()
@@ -169,7 +169,7 @@ class Logs(commands.Cog):
         embed.add_field(name="Всего удалено", value=str(len(payload.message_ids)), inline=True)
         embed.add_field(name="Не было в кеше", value=str(missing_count), inline=True)
         embed.add_field(name="Канал", value=channel_label, inline=False)
-        await self.bot.log_dispatcher.send("messages", embed)
+        await self.bot.log_dispatcher.send("messages", embed, event="message_bulk_delete_uncached")
         await log_event(
             "message_bulk_delete_uncached",
             f"{payload.guild_id}|{payload.channel_id}|{len(payload.message_ids)}|{missing_count}",
@@ -190,7 +190,7 @@ class Logs(commands.Cog):
             embed.add_field(name="Вложения после изменения", value=_value("\n".join(a.url for a in after.attachments)), inline=False)
         embed.add_field(name="Ссылка", value=f"[Открыть сообщение]({after.jump_url})", inline=False)
         embed.set_footer(text=f"Сообщение ID: {after.id}")
-        await self.bot.log_dispatcher.send("messages", embed)
+        await self.bot.log_dispatcher.send("messages", embed, event="message_edit")
         await log_event("message_edit", f"{before.author.id}|{after.id}|{before.content or ''}->{after.content or ''}")
 
     @commands.Cog.listener()
@@ -204,7 +204,7 @@ class Logs(commands.Cog):
         embed.add_field(name="Уникальных авторов", value=str(len({m.author.id for m in messages})), inline=True)
         sample = "\n".join(f"• {m.author} ({m.author.id}): {(m.content or '[без текста]')[:120]}" for m in messages[:8])
         embed.add_field(name="Примеры", value=_value(sample), inline=False)
-        await self.bot.log_dispatcher.send("messages", embed)
+        await self.bot.log_dispatcher.send("messages", embed, event="message_bulk_delete")
         await log_event("message_bulk_delete", f"{len(messages)}|{messages[0].channel.id}")
 
 

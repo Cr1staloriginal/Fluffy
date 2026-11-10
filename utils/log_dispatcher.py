@@ -2,6 +2,8 @@
 import asyncio
 import logging
 import os
+import random
+import re
 
 import disnake
 
@@ -30,6 +32,16 @@ class LogDispatcher:
         self.channels = {key: int(os.getenv(env, "0") or 0) for key, env in CATEGORY_ENV.items()}
         self._locks = {}
 
+    @staticmethod
+    def _event_env_name(category: str, event: str | None) -> str | None:
+        """Return an allowlist-safe per-event environment key."""
+        if not event:
+            return None
+        normalized = re.sub(r"[^A-Z0-9]+", "_", str(event).upper()).strip("_")
+        if not normalized:
+            return None
+        return f"LOG_CH_{category.upper()}_{normalized}"
+
     def set_channel(self, category: str, channel_id: int):
         if category not in CATEGORY_ENV:
             raise ValueError(f"Unknown log category: {category}")
@@ -48,11 +60,23 @@ class LogDispatcher:
             return None
         return channel
 
-    async def send(self, category: str, embed: disnake.Embed = None, *, content: str = None, view=None) -> bool:
+    async def send(
+        self,
+        category: str,
+        embed: disnake.Embed = None,
+        *,
+        content: str = None,
+        view=None,
+        event: str | None = None,
+    ) -> bool:
         if category not in CATEGORY_ENV:
             logger.error("Unknown log category %r", category)
             return False
-        channel_id = self.channels.get(category, 0)
+        # An event-specific destination overrides the category destination.
+        # Existing callers remain compatible and continue using category routing.
+        event_env = self._event_env_name(category, event)
+        event_channel_id = int(os.getenv(event_env, "0") or 0) if event_env else 0
+        channel_id = event_channel_id or self.channels.get(category, 0)
         if not channel_id:
             hints = CHANNEL_NAME_HINTS.get(category, ())
             matches = [
@@ -97,7 +121,8 @@ class LogDispatcher:
                     if attempt == 2 or status not in (429, 500, 502, 503, 504):
                         logger.exception("Could not send %s log to %s", category, channel_id)
                         return False
-                    await asyncio.sleep(0.75 * (2 ** attempt))
+                    delay = min(6.0, 0.75 * (2 ** attempt)) + random.uniform(0.0, 0.2)
+                    await asyncio.sleep(delay)
                 except (AttributeError, TypeError):
                     logger.exception("Invalid log payload or destination %s", channel_id)
                     return False
