@@ -12,9 +12,18 @@ from utils.colors import main_color, accent_color
 logger = logging.getLogger(__name__)
 
 
-def _value(value, limit=900):
+def _value(value, limit=1000):
+    """Return a non-empty Embed field value within Discord's 1024-char limit."""
     text = str(value or "").strip()
-    return text[:limit] if text else "*пусто*"
+    if not text:
+        return "*пусто*"
+
+    # Discord rejects Embed fields longer than 1024 characters. Keep a margin
+    # for a visible truncation marker and defend callers passing oversized limits.
+    safe_limit = max(1, min(int(limit), 1000))
+    if len(text) <= safe_limit:
+        return text
+    return text[: safe_limit - 1].rstrip() + "…"
 
 
 class Logs(commands.Cog):
