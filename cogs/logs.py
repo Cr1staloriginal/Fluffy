@@ -133,7 +133,7 @@ class Logs(commands.Cog):
         await log_event("message_delete", f"{message.author.id}|{message.id}|{message.content or ''}")
 
     @commands.Cog.listener()
-    async def on_raw_message_delete(self, payload: disnake.RawMessageDeleteEvent):
+    async def on_raw_message_delete(self, payload):
         # Cached deletes are already handled by on_message_delete with full content.
         if payload.guild_id is None or payload.cached_message is not None:
             return
@@ -151,7 +151,7 @@ class Logs(commands.Cog):
         await log_event("message_delete_uncached", f"{payload.guild_id}|{payload.channel_id}|{payload.message_id}")
 
     @commands.Cog.listener()
-    async def on_raw_bulk_message_delete(self, payload: disnake.RawBulkMessageDeleteEvent):
+    async def on_raw_bulk_message_delete(self, payload):
         if payload.guild_id is None:
             return
         cached_count = len(getattr(payload, "cached_messages", ()) or ())
