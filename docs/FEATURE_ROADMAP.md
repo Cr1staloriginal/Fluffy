@@ -19,7 +19,8 @@ This roadmap expands the systems already present in Fluffy. Work is delivered in
 - [x] Persist creator, category, and assignee in the channel topic so state survives restarts.
 - [x] Restore creator access decisions when closing tickets after a restart.
 - [x] Add unit tests for ticket metadata parsing and sanitization.
-- [x] Add staff-only TXT transcript export for the current ticket (up to the latest 1,000 messages, size-bounded).\n- [ ] Add configurable transcript retention.
+- [x] Add staff-only TXT transcript export for the current ticket (up to the latest 1,000 messages, size-bounded).
+- [ ] Add configurable transcript retention.
 - [ ] Add close reasons and optional requester feedback.
 - [ ] Add staff response-time and ticket-volume statistics.
 
