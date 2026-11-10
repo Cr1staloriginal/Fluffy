@@ -13,9 +13,33 @@ IGNORED_CHANNEL_IDS = {1473318583089234022, 1473324895546114324, 147332379351777
 IGNORED_CHANNEL_NAMES: tuple[str, ...] = ()
 
 
+def _parse_id_set(raw_value: str | None) -> set[int]:
+    """Parse comma/semicolon separated Discord IDs; ignore malformed entries."""
+    result: set[int] = set()
+    for item in (raw_value or "").replace(";", ",").split(","):
+        value = item.strip()
+        if value.isdecimal():
+            parsed = int(value)
+            if parsed > 0:
+                result.add(parsed)
+    return result
+
+
+ENV_IGNORED_CHANNEL_IDS = _parse_id_set(os.getenv("AUTOMOD_IGNORED_CHANNEL_IDS"))
+ENV_IGNORED_ROLE_IDS = _parse_id_set(os.getenv("AUTOMOD_IGNORED_ROLE_IDS"))
+
+
+def is_ignored_member(role_ids) -> bool:
+    """Return True when a member has a role explicitly exempted from AutoMod."""
+    return any(
+        str(role_id).isdecimal() and int(role_id) in ENV_IGNORED_ROLE_IDS
+        for role_id in role_ids
+    )
+
+
 def is_ignored_channel(channel_id: int, channel_name: str) -> bool:
     name = channel_name.casefold()
-    return channel_id in IGNORED_CHANNEL_IDS or any(
+    return channel_id in (IGNORED_CHANNEL_IDS | ENV_IGNORED_CHANNEL_IDS) or any(
         excluded.casefold() in name for excluded in IGNORED_CHANNEL_NAMES if excluded
     )
 
@@ -195,6 +219,8 @@ class AutoMod(commands.Cog):
 
         # ===== ИГНОРИРУЕМ УКАЗАННЫЕ КАНАЛЫ =====
         if is_ignored_channel(message.channel.id, message.channel.name):
+            return
+        if is_ignored_member(role.id for role in getattr(message.author, "roles", ())):
             return
 
         content = message.content

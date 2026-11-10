@@ -36,7 +36,7 @@ This roadmap expands the systems already present in Fluffy. Work is delivered in
 
 ## Phase 3 — Automod and anti-raid
 
-- [ ] Add per-channel and per-role rule exclusions.
+- [x] Add configurable channel-wide and role-wide AutoMod exemptions.\n- [ ] Add per-rule channel/role exclusions and staff-managed settings.
 - [ ] Add configurable warning/escalation policies.
 - [x] Add an administrator-controlled, persisted runtime override for automatic punishments with an explicit confirmation gate.
 - [ ] Add adaptive raid thresholds and a temporary lockdown mode with a clear recovery path.
