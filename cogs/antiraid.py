@@ -454,6 +454,61 @@ class AntiRaid(commands.Cog):
 
         await inter.edit_original_response("✅ Бэкап успешно восстановлен! Структура сервера восстановлена.")
 
+    @commands.slash_command(
+        name="предпросмотр_бэкапа",
+        description="🔎 Проверить бэкап и показать, что в нём сохранено",
+    )
+    @commands.has_permissions(administrator=True)
+    async def preview_backup(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+        имя_файла: str = None,
+    ):
+        await inter.response.defer(ephemeral=True)
+        guild = inter.guild
+        backup_dir = os.path.join(os.path.dirname(__file__), "..", "backups")
+        prefix = f"backup_{guild.id}_"
+        if not имя_файла:
+            try:
+                files = [name for name in os.listdir(backup_dir) if name.startswith(prefix) and name.endswith(".json")]
+            except OSError:
+                files = []
+            if not files:
+                await inter.edit_original_response("📭 Бэкапы для этого сервера не найдены.")
+                return
+            имя_файла = sorted(files, reverse=True)[0]
+
+        if os.path.basename(имя_файла) != имя_файла or not имя_файла.startswith(prefix) or not имя_файла.endswith(".json"):
+            await inter.edit_original_response("❌ Допускаются только имена бэкапов текущего сервера.")
+            return
+
+        filepath = os.path.join(backup_dir, имя_файла)
+        try:
+            with open(filepath, "r", encoding="utf-8") as backup_file:
+                data = json.load(backup_file)
+        except (OSError, json.JSONDecodeError):
+            await inter.edit_original_response("❌ Не удалось прочитать выбранный бэкап.")
+            return
+
+        valid, message = validate_backup_document(data, guild.id)
+        if not valid:
+            await inter.edit_original_response(f"❌ Проверка не пройдена: {message}.")
+            return
+
+        version = data.get("format_version", 1)
+        embed = disnake.Embed(
+            title="🔎 Предпросмотр бэкапа",
+            description=f"`{имя_файла}`\nПроверка целостности: **успешна**",
+            color=disnake.Color.green(),
+            timestamp=disnake.utils.utcnow(),
+        )
+        embed.add_field(name="Версия формата", value=str(version), inline=True)
+        embed.add_field(name="Категории", value=str(len(data["категории"])), inline=True)
+        embed.add_field(name="Каналы", value=str(len(data["каналы"])), inline=True)
+        embed.add_field(name="Роли", value=str(len(data["роли"])), inline=True)
+        embed.set_footer(text="Предпросмотр ничего не изменяет на сервере")
+        await inter.edit_original_response(embed=embed)
+
     # ---------- КОМАНДА ДЛЯ СПИСКА БЭКАПОВ ----------
     @commands.slash_command(name="список_бэкапов", description="📋 Показать список бэкапов для этого сервера")
     @commands.has_permissions(administrator=True)
