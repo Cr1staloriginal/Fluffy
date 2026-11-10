@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 import disnake
@@ -12,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 TICKET_CATEGORY = "Тикеты"
 CLOSED_CATEGORY_NAME = "Закрытые тикеты"
-
 
 class TicketModal(disnake.ui.Modal):
     def __init__(self):
