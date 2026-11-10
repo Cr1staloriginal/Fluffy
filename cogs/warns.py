@@ -1,7 +1,7 @@
 import disnake
 from disnake.ext import commands
 import os
-from database import add_warn, remove_warn, get_user_warns
+from database import add_warn, remove_warn, get_user_warns, add_moderation_case
 from utils.colors import main_color
 
 MOD_LOG_CHANNEL_ID = int(os.getenv("LOG_CH_MOD", 0))
@@ -29,6 +29,7 @@ class WarnActionButtons(disnake.ui.View):
         member = await self.get_member(guild)
         if member:
             await member.ban(reason=f"Решение модератора {inter.author} (ID: {inter.author.id}): {self.reason}")
+            await add_moderation_case(guild.id, member.id, inter.author.id, "ban", self.reason, "warn_action")
             await inter.followup.send(f"🔨 {member.mention} забанен. Модератор: {inter.author.mention}")
             log_embed = disnake.Embed(
                 title="🔨 Бан",
@@ -53,6 +54,7 @@ class WarnActionButtons(disnake.ui.View):
         member = await self.get_member(guild)
         if member:
             await member.kick(reason=f"Решение модератора {inter.author} (ID: {inter.author.id}): {self.reason}")
+            await add_moderation_case(guild.id, member.id, inter.author.id, "kick", self.reason, "warn_action")
             await inter.followup.send(f"👢 {member.mention} кикнут. Модератор: {inter.author.mention}")
             log_embed = disnake.Embed(
                 title="👢 Кик",
@@ -85,6 +87,7 @@ class WarnActionButtons(disnake.ui.View):
                     except:
                         pass
             await member.add_roles(mute_role, reason=f"Решение модератора {inter.author} (ID: {inter.author.id}): {self.reason}")
+            await add_moderation_case(guild.id, member.id, inter.author.id, "mute", self.reason, "warn_action")
             await inter.followup.send(f"🔇 {member.mention} замучен. Модератор: {inter.author.mention}")
             log_embed = disnake.Embed(
                 title="🔇 Мут",
@@ -107,6 +110,7 @@ class WarnActionButtons(disnake.ui.View):
             return
         await inter.response.defer()
         if await remove_warn(self.warn_id):
+            await add_moderation_case(inter.guild.id, self.user_id, inter.author.id, "warn_dismissed", self.reason, "warn_action")
             await inter.followup.send(f"✅ Предупреждение #{self.warn_id} снято с <@{self.user_id}>.")
         else:
             await inter.followup.send(f"⚠️ Предупреждение #{self.warn_id} не найдено.", ephemeral=True)
@@ -133,6 +137,8 @@ class Warns(commands.Cog):
 
         warn_id = await add_warn(user_id, 0, reason, rule_name, message_link)
         guild = self.bot.get_guild(GUILD_ID)
+        if guild is not None:
+            await add_moderation_case(guild.id, user_id, 0, "warn", reason, rule_name or "automod", message_link or "")
         member = guild.get_member(user_id) if guild else None
         member_name = member.display_name if member else f"User {user_id}"
 
