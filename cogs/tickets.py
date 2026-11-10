@@ -199,8 +199,12 @@ class CloseTicketButton(disnake.ui.View):
 
         metadata = parse_ticket_topic(inter.channel.topic)
         if not metadata:
-            await inter.response.send_message("❌ Не удалось прочитать данные тикета. Возможно, это старый тикет.", ephemeral=True)
-            return
+            # Keep tickets created before this update manageable as well.
+            metadata = {
+                "creator": str(self.creator_id or 0),
+                "category": "Общий вопрос",
+                "claimed_by": "",
+            }
 
         current_claim = metadata.get("claimed_by", "")
         if current_claim and current_claim != str(member.id):
