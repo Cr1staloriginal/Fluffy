@@ -30,7 +30,20 @@ class BackupIntegrityTests(unittest.TestCase):
 
     def test_legacy_backup_remains_supported(self):
         legacy = copy.deepcopy(self.snapshot)
-        self.assertTrue(validate_backup_document(legacy, 12345)[0])
+        valid, reason = validate_backup_document(legacy, 12345)
+        self.assertTrue(valid)
+        self.assertEqual(reason, "legacy")
+
+    def test_explicit_old_version_is_not_treated_as_legacy(self):
+        legacy = copy.deepcopy(self.snapshot)
+        legacy["format_version"] = 1
+        self.assertFalse(validate_backup_document(legacy, 12345)[0])
+
+    def test_version_downgrade_cannot_bypass_checksum(self):
+        document = build_backup_document(self.snapshot)
+        document["format_version"] = 1
+        document.pop("integrity")
+        self.assertFalse(validate_backup_document(document, 12345)[0])
 
     def test_invalid_structure_is_rejected(self):
         invalid = {"id_сервера": 12345, "категории": [], "каналы": []}
