@@ -411,7 +411,7 @@ class Tickets(commands.Cog):
 
         await inter.response.defer(ephemeral=True)
         try:
-            messages = [message async for message in inter.channel.history(limit=1000, oldest_first=True)]
+            messages = [message async for message in inter.channel.history(limit=1000, oldest_first=False)]\n            messages.reverse()
             transcript = render_ticket_transcript(messages)
             file = disnake.File(
                 fp=io.BytesIO(transcript.encode("utf-8")),
