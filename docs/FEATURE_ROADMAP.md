@@ -46,7 +46,8 @@ This roadmap expands the systems already present in Fluffy. Work is delivered in
 - [ ] Add configurable verification methods and timeout handling.
 - [ ] Add re-verification flows for role changes or suspicious activity.
 - [ ] Improve onboarding status and staff review visibility.
-- [x] Add a configurable cooldown for repeated pending verification submissions.\n- [ ] Add broader abuse/rate limits without locking out legitimate members.
+- [x] Add a configurable cooldown for repeated pending verification submissions.
+- [ ] Add broader abuse/rate limits without locking out legitimate members.
 
 ## Phase 5 — Temporary voice rooms
 
