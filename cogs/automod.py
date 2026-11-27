@@ -4,6 +4,7 @@ import os
 import re
 import time
 import unicodedata
+from urllib.parse import urlsplit
 from collections import defaultdict
 from database import add_warn
 
@@ -303,7 +304,7 @@ class AutoMod(commands.Cog):
 
         # ---------- 5. РЕКЛАМА (2.5) ----------
         if not violation:
-            ad_pattern = re.compile(r'(?i)(?:\bреклама\b|\bпромо\b|\bсамопиар\b|discord\.gg/|discord\.com/invite/|https?://\S+)')
+            ad_pattern = re.compile(r'(?i)(?:\bреклама\b|\bпромо\b|\bсамопиар\b|discord\.gg/|discord\.com/invite/)')
             if ad_pattern.search(content) and len(content) < 100:
                 violation = "Реклама или само-промо"
                 rule_name = "📜 Правило 2.5: Реклама и само-промо запрещены без разрешения"
@@ -323,7 +324,7 @@ class AutoMod(commands.Cog):
             urls = re.findall(r'https?://[^\s<>]+', content, flags=re.IGNORECASE)
             for url in urls:
                 try:
-                    host = __import__('urllib.parse', fromlist=['urlsplit']).urlsplit(url.rstrip('.,!?)]}')).hostname
+                    host = urlsplit(url.rstrip('.,!?)]}')).hostname
                     host = host.casefold().rstrip('.') if host else None
                 except ValueError:
                     host = None
