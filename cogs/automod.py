@@ -50,6 +50,26 @@ def spam_bucket_key(guild_id: int, user_id: int) -> tuple[int, int]:
     """Keep message-rate tracking isolated between Discord servers."""
     return guild_id, user_id
 
+
+def domain_matches(host: str, domain: str) -> bool:
+    """Match a hostname against a domain without accepting lookalike suffixes."""
+    host = (host or "").casefold().rstrip(".")
+    domain = (domain or "").casefold().strip().rstrip(".")
+    # Entries containing paths are not hostnames and must never match here.
+    if not host or not domain or "/" in domain:
+        return False
+    return host == domain or host.endswith("." + domain)
+
+
+def is_allowed_domain(host: str, allowed_domains) -> bool:
+    """Return whether a URL host belongs to an explicitly trusted domain."""
+    return any(domain_matches(host, domain) for domain in allowed_domains)
+
+
+def is_scam_domain(host: str, scam_domains) -> bool:
+    """Return whether a URL host matches a blocked domain entry."""
+    return any(domain_matches(host, domain) for domain in scam_domains)
+
 # ---------------------- ПУТИ К ФАЙЛАМ (опционально) ----------------------
 WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "words.txt")
 DATA_WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "words.txt")
@@ -218,6 +238,10 @@ class AutoMod(commands.Cog):
         self.user_messages = defaultdict(list)
         self.allowlist_domains = [
             "youtube.com", "youtu.be", "discord.com", "discord.gg",
+            # Official Discord media hosts (attachments, embeds and proxied images).
+            "cdn.discordapp.com", "media.discordapp.net", "images-ext-1.discordapp.net",
+            # Common GIF providers.
+            "tenor.com", "giphy.com",
             "github.com", "gitlab.com", "stackoverflow.com",
             "wikipedia.org", "ru.wikipedia.org", "google.com"
         ]
@@ -330,9 +354,9 @@ class AutoMod(commands.Cog):
                     host = None
                 if not host:
                     violation = 'Некорректная ссылка'
-                elif any(host == d or host.endswith('.' + d) for d in self.scam_domains):
+                elif is_scam_domain(host, self.scam_domains):
                     violation = f'Сокращённая или подозрительная ссылка: {host}'
-                elif not any(host == d or host.endswith('.' + d) for d in self.allowlist_domains):
+                elif not is_allowed_domain(host, self.allowlist_domains):
                     violation = f'Ссылка с неразрешённого домена: {host}'
                 if violation:
                     rule_name = '📜 Правило 4.4: Ссылки разрешены только с разрешения администрации'
