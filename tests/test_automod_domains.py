@@ -1,6 +1,6 @@
 import unittest
 
-from cogs.automod import domain_matches, is_allowed_domain, is_scam_domain
+from cogs.automod import domain_matches, is_allowed_domain, is_gif_url, is_scam_domain
 
 
 class AutoModDomainTests(unittest.TestCase):
@@ -43,6 +43,12 @@ class AutoModDomainTests(unittest.TestCase):
         self.assertTrue(is_scam_domain("tinyurl.com", blocked))
         self.assertTrue(is_scam_domain("go.tinyurl.com", blocked))
         self.assertFalse(is_scam_domain("cdn.discordapp.com", blocked))
+
+    def test_direct_gif_files_are_allowed_from_any_host(self):
+        self.assertTrue(is_gif_url("https://unknown.example/funny.gif"))
+        self.assertTrue(is_gif_url("https://cdn.example/path/ANIMATION.GIF?width=500"))
+        self.assertFalse(is_gif_url("https://unknown.example/funny.png"))
+        self.assertFalse(is_gif_url("https://unknown.example/gallery?file=funny.gif"))
 
     def test_path_entries_are_not_mistaken_for_hostnames(self):
         self.assertFalse(domain_matches("discordapp.com", "discordapp.com/gift"))

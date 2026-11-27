@@ -70,6 +70,14 @@ def is_scam_domain(host: str, scam_domains) -> bool:
     """Return whether a URL host matches a blocked domain entry."""
     return any(domain_matches(host, domain) for domain in scam_domains)
 
+
+def is_gif_url(url: str) -> bool:
+    """Allow direct GIF media files regardless of their hosting domain."""
+    try:
+        return (urlsplit(url).path or "").casefold().endswith(".gif")
+    except ValueError:
+        return False
+
 # ---------------------- ПУТИ К ФАЙЛАМ (опционально) ----------------------
 WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "words.txt")
 DATA_WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "words.txt")
@@ -356,6 +364,9 @@ class AutoMod(commands.Cog):
                     violation = 'Некорректная ссылка'
                 elif is_scam_domain(host, self.scam_domains):
                     violation = f'Сокращённая или подозрительная ссылка: {host}'
+                elif is_gif_url(url):
+                    # Direct GIF files are allowed from any host; scam domains stay blocked above.
+                    continue
                 elif not is_allowed_domain(host, self.allowlist_domains):
                     violation = f'Ссылка с неразрешённого домена: {host}'
                 if violation:
