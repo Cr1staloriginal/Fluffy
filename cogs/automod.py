@@ -106,7 +106,7 @@ BUILTIN_SCAM_DOMAINS = [
     "un.ly", "v.gd", "valv.es", "vaza.me", "vbly.com", "viralurl.com", "vox.com",
     "waa.ai", "wapo.st", "wbs.im", "wepr.ovh", "www.yourls.org", "x.co", "x.pr", "xm.si",
     "xs.ax", "y.ahoo.it", "yfrog.com", "yhoo.it", "zip.net", "zpr.io", "zy.ly",
-    "discord.gift", "discordapp.com/gift", "steamcommunity.com",
+    "discord.gift", "discordapp.com/gift",
     "free-nitro", "nitro-gift", "discord-nitro", "steam-gift"
 ]
 
