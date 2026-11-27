@@ -214,7 +214,7 @@ class AutoMod(commands.Cog):
         self.bad_words = load_bad_words()
         self.scam_domains = load_scam_domains()
         self.politics_words = load_politics_words()
-        self.allowed_words = set(_load_words(ALLOWED_WORDS_FILE, []))
+        self.allowed_words = {normalize_for_filter(word) for word in _load_words(ALLOWED_WORDS_FILE, [])}
         self.user_messages = defaultdict(list)
         self.allowlist_domains = [
             "youtube.com", "youtu.be", "discord.com", "discord.gg",
@@ -247,7 +247,7 @@ class AutoMod(commands.Cog):
 
         # ---------- 1. ПОЛИТИКА, РЕЛИГИЯ, ИДЕОЛОГИИ (1.4) ----------
         for word in self.politics_words:
-            if word not in self.allowed_words and matches_blocked_term(lowered, word):
+            if normalize_for_filter(word) not in self.allowed_words and matches_blocked_term(lowered, word):
                 violation = f"Запрещённая тема: {word}"
                 rule_name = "📜 Правило 1.4: Политика, религия и идеологии запрещены"
                 rule_number = "1.4"
