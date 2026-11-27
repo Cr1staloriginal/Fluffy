@@ -3,6 +3,7 @@ from disnake.ext import commands
 import os
 import re
 import time
+import unicodedata
 from collections import defaultdict
 from database import add_warn
 
@@ -51,6 +52,7 @@ def spam_bucket_key(guild_id: int, user_id: int) -> tuple[int, int]:
 # ---------------------- ПУТИ К ФАЙЛАМ (опционально) ----------------------
 WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "words.txt")
 DATA_WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "words.txt")
+ALLOWED_WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "allowed_words.txt")
 SCAM_DOMAINS_FILE = os.path.join(os.path.dirname(__file__), "..", "scam_domains.txt")
 POLITICS_WORDS_FILE = os.path.join(os.path.dirname(__file__), "..", "politics_words.txt")
 
@@ -185,6 +187,15 @@ def load_scam_domains():
 def load_politics_words():
     return _load_words(POLITICS_WORDS_FILE, BUILTIN_POLITICS_WORDS)
 
+def normalize_for_filter(value: str) -> str:
+    return unicodedata.normalize('NFKC', value).casefold().replace('ё', 'е')
+
+def matches_blocked_term(content: str, term: str) -> bool:
+    term = normalize_for_filter(term.strip())
+    if not term:
+        return False
+    return re.search(r'(?<!\\w)' + re.escape(term) + r'(?!\\w)', normalize_for_filter(content), flags=re.UNICODE) is not None
+
 # ---------------------- НАСТРОЙКИ ФИЛЬТРОВ ----------------------
 MAX_CAPS_PERCENT = 70
 MAX_REPEAT_CHARS = 10
@@ -202,6 +213,7 @@ class AutoMod(commands.Cog):
         self.bad_words = load_bad_words()
         self.scam_domains = load_scam_domains()
         self.politics_words = load_politics_words()
+        self.allowed_words = set(_load_words(ALLOWED_WORDS_FILE, []))
         self.user_messages = defaultdict(list)
         self.allowlist_domains = [
             "youtube.com", "youtu.be", "discord.com", "discord.gg",
@@ -234,7 +246,7 @@ class AutoMod(commands.Cog):
 
         # ---------- 1. ПОЛИТИКА, РЕЛИГИЯ, ИДЕОЛОГИИ (1.4) ----------
         for word in self.politics_words:
-            if word in lowered:
+            if word not in self.allowed_words and matches_blocked_term(lowered, word):
                 violation = f"Запрещённая тема: {word}"
                 rule_name = "📜 Правило 1.4: Политика, религия и идеологии запрещены"
                 rule_number = "1.4"
@@ -243,7 +255,7 @@ class AutoMod(commands.Cog):
         # ---------- 2. NSFW (2.1) ----------
         if not violation:
             for word in BUILTIN_NSFW_WORDS:
-                if word in lowered:
+                if word not in self.allowed_words and matches_blocked_term(lowered, word):
                     violation = f"NSFW контент: {word}"
                     rule_name = "📜 Правило 2.1: Сервер полностью SFW"
                     rule_number = "2.1"
@@ -300,7 +312,7 @@ class AutoMod(commands.Cog):
         # ---------- 6. НЕЗАКОННАЯ ДЕЯТЕЛЬНОСТЬ (4.1) ----------
         if not violation:
             for word in BUILTIN_ILLEGAL_WORDS:
-                if word in lowered:
+                if word not in self.allowed_words and matches_blocked_term(lowered, word):
                     violation = f"Обсуждение незаконной деятельности: {word}"
                     rule_name = "📜 Правило 4.1: Запрещена любая незаконная деятельность"
                     rule_number = "4.1"
@@ -332,7 +344,7 @@ class AutoMod(commands.Cog):
         # ---------- 8. ОСКОРБЛЕНИЯ (1.1) ----------
         if not violation:
             for word in self.bad_words:
-                if word in lowered:
+                if word not in self.allowed_words and matches_blocked_term(lowered, word):
                     violation = f"Оскорбление: {word}"
                     rule_name = "📜 Правило 1.1: Относись с уважением к каждому"
                     rule_number = "1.1"
@@ -343,7 +355,7 @@ class AutoMod(commands.Cog):
             discrimination_words = ["фашист", "расист", "нацист", "гомофоб", "ксенофоб", 
                                    "черножоп", "жид", "хохол", "москаль", "чурка", "узкоглазый"]
             for word in discrimination_words:
-                if word in lowered:
+                if word not in self.allowed_words and matches_blocked_term(lowered, word):
                     violation = f"Дискриминационное высказывание: {word}"
                     rule_name = "📜 Правило 1.10: Запрещены проявления фашизма, расизма, ксенофобии и любой дискриминации"
                     rule_number = "1.10"
@@ -352,7 +364,7 @@ class AutoMod(commands.Cog):
         # ---------- 10. ЖЕСТОКОСТЬ/НАСИЛИЕ (1.7) ----------
         if not violation:
             for word in BUILTIN_VIOLENCE_WORDS:
-                if word in lowered:
+                if word not in self.allowed_words and matches_blocked_term(lowered, word):
                     violation = f"Романтизация жестокости/насилия: {word}"
                     rule_name = "📜 Правило 1.7: Запрещена романтизация жестокости, насилия, само-харма и зоофилии"
                     rule_number = "1.7"
