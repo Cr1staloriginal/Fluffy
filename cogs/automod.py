@@ -320,26 +320,23 @@ class AutoMod(commands.Cog):
 
         # ---------- 7. ССЫЛКИ (4.4) ----------
         if not violation:
-            url_pattern = re.compile(r'https?://\S+')
-            if url_pattern.search(content):
-                is_allowed = False
-                for domain in self.allowlist_domains:
-                    if domain in lowered:
-                        is_allowed = True
-                        break
-                if not is_allowed:
-                    # Проверяем на сокращённые домены
-                    for domain in self.scam_domains:
-                        if domain in lowered:
-                            violation = f"Сокращённая или подозрительная ссылка: {domain}"
-                            rule_name = "📜 Правило 4.4: Сокращённые ссылки и фишинг запрещены"
-                            rule_number = "4.4"
-                            break
-                    else:
-                        # Любая ссылка, не в белом списке, считается нарушением
-                        violation = "Использование ссылки без разрешения"
-                        rule_name = "📜 Правило 4.4: Ссылки разрешены только с разрешения администрации"
-                        rule_number = "4.4"
+            urls = re.findall(r'https?://[^\\s<>]+', content, flags=re.IGNORECASE)
+            for url in urls:
+                try:
+                    host = __import__('urllib.parse', fromlist=['urlsplit']).urlsplit(url.rstrip('.,!?)]}')).hostname
+                    host = host.casefold().rstrip('.') if host else None
+                except ValueError:
+                    host = None
+                if not host:
+                    violation = 'Некорректная ссылка'
+                elif any(host == d or host.endswith('.' + d) for d in self.scam_domains):
+                    violation = f'Сокращённая или подозрительная ссылка: {host}'
+                elif not any(host == d or host.endswith('.' + d) for d in self.allowlist_domains):
+                    violation = f'Ссылка с неразрешённого домена: {host}'
+                if violation:
+                    rule_name = '📜 Правило 4.4: Ссылки разрешены только с разрешения администрации'
+                    rule_number = '4.4'
+                    break
 
         # ---------- 8. ОСКОРБЛЕНИЯ (1.1) ----------
         if not violation:
