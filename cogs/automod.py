@@ -249,7 +249,7 @@ class AutoMod(commands.Cog):
             # Official Discord media hosts (attachments, embeds and proxied images).
             "cdn.discordapp.com", "media.discordapp.net", "images-ext-1.discordapp.net",
             # Common GIF providers.
-            "tenor.com", "giphy.com",
+            "tenor.com", "giphy.com", "klipy.com",
             "github.com", "gitlab.com", "stackoverflow.com",
             "wikipedia.org", "ru.wikipedia.org", "google.com"
         ]
