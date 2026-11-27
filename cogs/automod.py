@@ -194,7 +194,7 @@ def matches_blocked_term(content: str, term: str) -> bool:
     term = normalize_for_filter(term.strip())
     if not term:
         return False
-    return re.search(r'(?<!\\w)' + re.escape(term) + r'(?!\\w)', normalize_for_filter(content), flags=re.UNICODE) is not None
+    return re.search(r'(?<!\w)' + re.escape(term) + r'(?!\w)', normalize_for_filter(content), flags=re.UNICODE) is not None
 
 # ---------------------- НАСТРОЙКИ ФИЛЬТРОВ ----------------------
 MAX_CAPS_PERCENT = 70
@@ -320,7 +320,7 @@ class AutoMod(commands.Cog):
 
         # ---------- 7. ССЫЛКИ (4.4) ----------
         if not violation:
-            urls = re.findall(r'https?://[^\\s<>]+', content, flags=re.IGNORECASE)
+            urls = re.findall(r'https?://[^\s<>]+', content, flags=re.IGNORECASE)
             for url in urls:
                 try:
                     host = __import__('urllib.parse', fromlist=['urlsplit']).urlsplit(url.rstrip('.,!?)]}')).hostname
