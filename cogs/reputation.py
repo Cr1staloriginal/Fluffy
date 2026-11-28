@@ -1,4 +1,6 @@
 """Репутация участников с защитой от повторной выдачи."""
+from typing import Optional
+
 import aiosqlite
 import disnake
 from disnake.ext import commands
