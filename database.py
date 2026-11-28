@@ -2,7 +2,7 @@ import aiosqlite
 from pathlib import Path
 import os
 import datetime
-from typing import Optional
+from typing import Any, Optional
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE_PATH = os.getenv("DATABASE_PATH", "data/database.db")
