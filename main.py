@@ -119,7 +119,11 @@ async def main():
         if status_cog and target_guild is not None:
             update_status = getattr(status_cog, "update_status", None)
             if callable(update_status):
-                await update_status()
+                import inspect
+
+                result = update_status()
+                if inspect.isawaitable(result):
+                    await result
 
     await init_db()
     logger.info("База данных инициализирована")
