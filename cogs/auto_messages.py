@@ -148,7 +148,7 @@ class AutoMessages(commands.Cog):
 
 
 
-    async def cog_load(self):
+    async def cog_load(self) -> None:
         # SQLite overrides environment defaults for settings changed through slash commands.
         saved_channel = await get_setting("auto_message_channel_id")
         saved_interval = await get_setting("auto_message_interval")
