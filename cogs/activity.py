@@ -79,7 +79,7 @@ class Activity(commands.Cog):
         if str(payload.emoji) == "🍪":
             logger.debug("[Activity] Cookie reaction from %s", payload.user_id)
             channel = self.bot.get_channel(payload.channel_id)
-            if channel:
+            if isinstance(channel, disnake.abc.Messageable):
                 try:
                     message = await channel.fetch_message(payload.message_id)
                     if message.author and not message.author.bot:
