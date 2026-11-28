@@ -157,9 +157,10 @@ class AutoMessages(commands.Cog):
             self.channel_id = self._read_int_value(saved_channel, self.channel_id, 0, 2**63 - 1)
         if saved_interval is not None:
             self.interval_minutes = self._read_int_value(saved_interval, self.interval_minutes, 5, 1440)
-        self.auto_message.change_interval(minutes=self.interval_minutes)
+        auto_message_loop = cast(tasks.Loop, self.auto_message)
+        auto_message_loop.change_interval(minutes=self.interval_minutes)
         if self.enabled:
-            self.auto_message.start()
+            auto_message_loop.start()
         else:
             print("[AutoMessages] Автосообщения отключены в настройках окружения")
 
@@ -172,8 +173,9 @@ class AutoMessages(commands.Cog):
             return default
 
     def cog_unload(self):
-        if self.auto_message.is_running():
-            self.auto_message.cancel()
+        auto_message_loop = cast(tasks.Loop, self.auto_message)
+        if auto_message_loop.is_running():
+            auto_message_loop.cancel()
 
     def is_night(self) -> bool:
         """Проверяет, ночь ли сейчас (по локальному времени)."""
@@ -223,7 +225,7 @@ class AutoMessages(commands.Cog):
             print(f"[AutoMessages] Ошибка отправки: {e}")
             return False
 
-    @auto_message.before_loop
+    @cast(tasks.Loop, auto_message).before_loop
     async def before_auto_message(self):
         await self.bot.wait_until_ready()
         if self.min_delay > 0:
@@ -242,9 +244,10 @@ class AutoMessages(commands.Cog):
     @auto_group.sub_command(name="статус", description="Показать статус автосообщений")
     async def status(self, inter: disnake.ApplicationCommandInteraction):
         channel = self.bot.get_channel(self.channel_id)
-        channel_text = channel.mention if channel else "❌ не найден"
+        channel_text = channel.mention if isinstance(channel, disnake.TextChannel) else "❌ не найден"
         season = get_current_season()
-        running = "✅ Включены" if self.auto_message.is_running() else "❌ Выключены"
+        auto_message_loop = cast(tasks.Loop, self.auto_message)
+        running = "✅ Включены" if auto_message_loop.is_running() else "❌ Выключены"
 
         now_local = get_local_time()
         now_utc = datetime.datetime.now(datetime.timezone.utc)
@@ -267,7 +270,8 @@ class AutoMessages(commands.Cog):
     @auto_group.sub_command(name="отправить", description="Отправить автосообщение прямо сейчас (тест)")
     async def send_now(self, inter: disnake.ApplicationCommandInteraction):
         await inter.response.defer(ephemeral=True)
-        success = await self.auto_message()
+        auto_message_loop = cast(tasks.Loop, self.auto_message)
+        success = await auto_message_loop()
         if success:
             await inter.edit_original_response(content="✅ Сообщение отправлено!")
         else:
@@ -290,7 +294,8 @@ class AutoMessages(commands.Cog):
     ):
         self.interval_minutes = минуты
         await set_setting("auto_message_interval", str(минуты))
-        self.auto_message.change_interval(minutes=минуты)
+        auto_message_loop = cast(tasks.Loop, self.auto_message)
+        auto_message_loop.change_interval(minutes=минуты)
         await inter.response.send_message(
             f"✅ Интервал: **{минуты} мин**.\nНастройка сохранена в базе данных.",
             ephemeral=True
