@@ -496,10 +496,13 @@ class AntiRaid(commands.Cog):
     async def preview_backup(
         self,
         inter: disnake.ApplicationCommandInteraction,
-        имя_файла: str = None,
+        имя_файла: str | None = None,
     ):
         await inter.response.defer(ephemeral=True)
         guild = inter.guild
+        if guild is None:
+            await inter.edit_original_response("❌ Команда доступна только на сервере.")
+            return
         backup_dir = os.path.join(os.path.dirname(__file__), "..", "backups")
         prefix = f"backup_{guild.id}_"
         if not имя_файла:
@@ -554,6 +557,9 @@ class AntiRaid(commands.Cog):
     async def list_backups(self, inter: disnake.ApplicationCommandInteraction):
         await inter.response.defer(ephemeral=True)
         guild = inter.guild
+        if guild is None:
+            await inter.edit_original_response("❌ Команда доступна только на сервере.")
+            return
         backup_dir = os.path.join(os.path.dirname(__file__), "..", "backups")
         if not os.path.exists(backup_dir):
             await inter.edit_original_response("📭 Нет сохранённых бэкапов.")
@@ -583,7 +589,10 @@ class AntiRaid(commands.Cog):
     @commands.slash_command(name="антирейд", description="🛡️ Настройка анти-рейд системы")
     @commands.has_permissions(administrator=True)
     async def antiraid(self, inter: disnake.ApplicationCommandInteraction):
-        pass
+        await inter.response.send_message(
+            "Выберите подкоманду для настройки анти-рейда.",
+            ephemeral=True,
+        )
 
     @antiraid.sub_command(name="настроить", description="Изменить настройки анти-рейда")
     @commands.has_permissions(administrator=True)
