@@ -2,12 +2,10 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import urllib.parse
 import xml.etree.ElementTree as ET
-from typing import Any
 
 import disnake
 import requests
