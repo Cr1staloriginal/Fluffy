@@ -16,7 +16,7 @@ except ImportError:  # Keep the rest of the bot usable if the optional dependenc
     yt_dlp = None
 
 logger = logging.getLogger(__name__)
-YDL_OPTIONS: dict[str, Any] = {
+YDL_OPTIONS: Any = {
     "format": "bestaudio/best",
     "noplaylist": True,
     "quiet": True,

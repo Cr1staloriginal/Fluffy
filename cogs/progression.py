@@ -69,7 +69,7 @@ class Progression(commands.Cog):
     async def profile(
         self,
         inter: disnake.ApplicationCommandInteraction,
-        участник: disnake.Member = None,
+        участник: disnake.Member | None = None,
     ):
         if inter.guild is None:
             await inter.response.send_message("Команда доступна только на сервере.", ephemeral=True)
