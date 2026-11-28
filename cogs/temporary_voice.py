@@ -88,20 +88,21 @@ class TemporaryVoicePanel(disnake.ui.View):
         self.cog = cog
 
     @disnake.ui.button(label="🔒 Закрыть / открыть", style=disnake.ButtonStyle.secondary, custom_id="fluffy:tempvoice:toggle", row=0)
-    async def toggle_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+    async def toggle_button(self, _button: disnake.ui.Button, inter: disnake.MessageInteraction):
         room = await self.cog.get_controlled_room(inter)
         if room is None:
             return
-        overwrite = room.overwrites_for(inter.guild.default_role)
+        guild = cast(disnake.Guild, inter.guild)
+        overwrite = room.overwrites_for(guild.default_role)
         is_closed = overwrite.connect is False or (
-            overwrite.connect is None and not room.permissions_for(inter.guild.default_role).connect
+            overwrite.connect is None and not room.permissions_for(guild.default_role).connect
         )
         try:
             await room.set_permissions(
-                inter.guild.default_role,
+                guild.default_role,
                 view_channel=True if is_closed else False,
                 connect=True if is_closed else False,
-                reason=f"Изменение доступа к комнате владельцем {inter.author.id}",
+                reason=f"Изменение доступа к комнате владельжем {inter.author.id}",
             )
         except disnake.HTTPException:
             await inter.response.send_message("❌ Не удалось изменить доступ к комнате. Проверь права Fluffy.", ephemeral=True)
