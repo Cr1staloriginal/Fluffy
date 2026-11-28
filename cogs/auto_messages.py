@@ -4,6 +4,7 @@ import datetime
 import random
 import os
 import asyncio
+from typing import cast
 from utils.seasons import get_current_season, get_season_name, get_local_time
 from database import get_setting, set_setting
 
@@ -197,7 +198,7 @@ class AutoMessages(commands.Cog):
             except (disnake.NotFound, disnake.Forbidden, disnake.HTTPException):
                 self._last_send_error = f"Канал {self.channel_id} недоступен"
                 return False
-        if not hasattr(channel, "send"):
+        if not isinstance(channel, disnake.abc.Messageable):
             self._last_send_error = "Указанный канал не поддерживает отправку сообщений"
             return False
 
