@@ -362,7 +362,7 @@ async def get_user_stats(user_id: int) -> Optional[tuple[int, int, int]]:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         async with db.execute("SELECT messages_sent, voice_minutes, cookies_received FROM users WHERE user_id = ?", (user_id,)) as cur:
             row = await cur.fetchone()
-            return row if row is not None else None
+            return tuple(row) if row is not None else None
 
 
 # ========== ВАРНЫ ==========
@@ -410,8 +410,8 @@ async def add_moderation_case(
                 str(message_link)[:500],
             ),
         )
-        await db.commit() if cursor.lastrowid is not None else 0
-        return int(cursor.lastrowid)
+        await db.commit()
+        return int(cursor.lastrowid) if cursor.lastrowid is not None else 0
 
 
 async def get_moderation_case(guild_id: int, case_id: int):
@@ -474,8 +474,8 @@ async def get_today_birthdays(today: str) -> list[int]:
 async def add_suggestion(author_id: int, text: str) -> int:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         cursor = await db.execute("INSERT INTO suggestions (author_id, text) VALUES (?, ?)", (author_id, text))
-        await dint(cursor.lastrowid) if cursor.lastrowid is not None else 0
-        return cursor.lastrowid
+        await db.commit()
+        return cursor.lastrowid if cursor.lastrowid is not None else 0
 
 
 async def get_suggestion(suggestion_id: int):
@@ -622,8 +622,9 @@ async def list_custom_commands(guild_id: int) -> list[tuple[str, str]]:
         async with db.execute(
             "SELECT name, response FROM custom_commands WHERE guild_id = ? ORDER BY name",
             (int(guild_id),),
-        ) as cur:list(await cur.fetchall()
-            return await cur.fetchall()
+        ) as cur:
+            rows = await cur.fetchall()
+            return [(row[0], row[1]) for row in rows]
 
 
 async def delete_custom_command(guild_id: int, name: str) -> bool:
