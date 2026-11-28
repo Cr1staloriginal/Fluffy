@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+from typing import cast
 
 import aiosqlite
 import disnake

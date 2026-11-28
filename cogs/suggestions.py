@@ -163,7 +163,8 @@ class SuggestionView(disnake.ui.View):
     @disnake.ui.button(label="🔧 Принять решение", style=disnake.ButtonStyle.primary, custom_id="fluffy:suggestion:resolve")
     async def resolve_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         member = inter.author
-        is_staff = is_staff_member(member) or any(role.name in STAFF_ROLE_NAMES for role in member.roles)
+        member_roles = getattr(member, "roles", ())
+        is_staff = is_staff_member(member) or any(role.name in STAFF_ROLE_NAMES for role in member_roles)
         if not is_staff:
             await inter.response.send_message("❌ Только персонал может принимать решения.", ephemeral=True)
             return
