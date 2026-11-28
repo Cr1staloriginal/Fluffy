@@ -9,7 +9,7 @@ import hashlib
 import datetime
 import os
 from collections import deque, defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 import aiosqlite
 from database import DB_PATH, log_event
 
@@ -287,7 +287,7 @@ class AntiRaid(commands.Cog):
                 result = "нарушитель уже вышел или не найден; автоматический бан не выполнялся"
         elif punishment == "timeout_3h" and member is not None:
             try:
-                until = disnake.utils.utcnow() + datetime.timedelta(hours=3)
+                until = disnake.utils.utcnow() + timedelta(hours=3)
                 await member.timeout(until, reason=reason)
                 result = "тайм-аут 3 часа"
             except (disnake.Forbidden, disnake.HTTPException) as exc:
