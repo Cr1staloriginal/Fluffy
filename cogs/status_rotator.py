@@ -59,7 +59,7 @@ class StatusRotator(commands.Cog):
         await self.bot.wait_until_ready()
         print("[StatusRotator] Цикл статуса запущен.")
 
-    def cog_load(self):
+    async def cog_load(self):
         self.status_loop.start()
         print("[StatusRotator] Ког загружен, ротация включена.")
 

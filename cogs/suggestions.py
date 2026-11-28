@@ -102,6 +102,10 @@ class SuggestionModal(disnake.ui.Modal):
             await db.commit()
             suggestion_id = cursor.lastrowid
 
+        if suggestion_id is None:
+            await inter.response.send_message("❌ Не удалось создать предложение.", ephemeral=True)
+            return
+
         embed = disnake.Embed(
             title=f"⭐ Идея №{suggestion_id}",
             description=text,
