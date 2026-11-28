@@ -3,7 +3,7 @@
 import logging
 import os
 import re
-from typing import cast
+from typing import Any, cast
 
 import aiosqlite
 import disnake
@@ -56,7 +56,7 @@ class VoiceRoomModal(disnake.ui.Modal):
             "revoke": ("ID или упоминание участника", "@участник или ID", "ID участника"),
             "transfer": ("ID или упоминание нового владельца", "Новый владелец должен быть в комнате", "ID участника"),
         }
-        label, placeholder, custom_id = labels[action]
+        label, placeholder, _ = labels[action]
         super().__init__(
             title={
                 "limit": "Изменить лимит комнаты",
