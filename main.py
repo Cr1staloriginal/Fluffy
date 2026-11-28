@@ -88,7 +88,7 @@ async def main():
 
     # Register slash commands only in Fluffy Town, never globally.
     bot = commands.InteractionBot(intents=intents, test_guilds=[GUILD_ID])
-    bot.log_dispatcher = LogDispatcher(bot)
+    setattr(bot, "log_dispatcher", LogDispatcher(bot))
 
     @bot.event
     async def on_guild_join(guild: disnake.Guild):
@@ -117,7 +117,9 @@ async def main():
             )
         status_cog = bot.get_cog("StatusRotator")
         if status_cog and target_guild is not None:
-            await status_cog.update_status()
+            update_status = getattr(status_cog, "update_status", None)
+            if callable(update_status):
+                await update_status()
 
     await init_db()
     logger.info("База данных инициализирована")
