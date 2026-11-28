@@ -39,8 +39,8 @@ def is_ignored_member(role_ids) -> bool:
     )
 
 
-def is_ignored_channel(channel_id: int, channel_name: str) -> bool:
-    name = channel_name.casefold()
+def is_ignored_channel(channel_id: int, channel_name: str | None) -> bool:
+    name = (channel_name or "").casefold()
     return channel_id in (IGNORED_CHANNEL_IDS | ENV_IGNORED_CHANNEL_IDS) or any(
         excluded.casefold() in name for excluded in IGNORED_CHANNEL_NAMES if excluded
     )
