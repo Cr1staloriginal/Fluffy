@@ -18,7 +18,12 @@ ACTION_LABELS = {
 
 
 def _case_line(case) -> str:
-    case_id, _guild_id, target_id, moderator_id, action, reason, source, message_link, created_at = case
+    case_id = case[0]
+    target_id = case[2]
+    moderator_id = case[3]
+    action = case[4]
+    reason = case[5]
+    created_at = case[8]
     action_label = ACTION_LABELS.get(action, action)
     moderator = f"<@{moderator_id}>" if moderator_id else "Автомод / система"
     reason_text = (reason or "Причина не указана").replace("\n", " ")[:180]
@@ -50,7 +55,7 @@ class ModerationCases(commands.Cog):
             await inter.response.send_message("Команда доступна только на сервере.", ephemeral=True)
             return
         safe_limit = max(1, min(limit, 25))
-        rows = await get_user_moderation_cases(inter.guild.id, member.id, safe_limit)
+        rows = list(await get_user_moderation_cases(inter.guild.id, member.id, safe_limit))
         if not rows:
             await inter.response.send_message(
                 f"У {member.mention} пока нет записей в истории модерации.",
