@@ -14,10 +14,13 @@ class Say(commands.Cog):
         self,
         inter: disnake.ApplicationCommandInteraction,
         сообщение: str,
-        канал: disnake.TextChannel = None
+        канал: Optional[disnake.TextChannel] = None
     ):
         """Отправляет указанное сообщение в указанный канал (или текущий)."""
         channel = канал or inter.channel
+        if not isinstance(channel, disnake.TextChannel) or inter.guild is None or inter.guild.me is None:
+            await inter.response.send_message("❌ Не удалось определить текстовый канал.", ephemeral=True)
+            return
         if not channel.permissions_for(inter.guild.me).send_messages:
             await inter.response.send_message("❌ У бота нет прав на отправку в этот канал.", ephemeral=True)
             return
@@ -37,8 +40,8 @@ class Say(commands.Cog):
         заголовок: str,
         описание: str,
         цвет: str = commands.Param(choices=["основной", "акцентный"], default="основной"),
-        канал: disnake.TextChannel = None,
-        картинка: str = None
+        канал: Optional[disnake.TextChannel] = None,
+        картинка: Optional[str] = None
     ):
         """Отправляет embed с выбранным цветом."""
         # Определяем цвет
@@ -57,6 +60,9 @@ class Say(commands.Cog):
             embed.set_image(url=картинка)
 
         channel = канал or inter.channel
+        if not isinstance(channel, disnake.TextChannel) or inter.guild is None or inter.guild.me is None:
+            await inter.response.send_message("❌ Не удалось определить текстовый канал.", ephemeral=True)
+            return
         if not channel.permissions_for(inter.guild.me).send_messages:
             await inter.response.send_message("❌ У бота нет прав на отправку в этот канал.", ephemeral=True)
             return
