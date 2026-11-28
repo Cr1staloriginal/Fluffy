@@ -2,6 +2,7 @@ import disnake
 from disnake.ext import commands
 import aiosqlite
 from pathlib import Path
+from typing import Optional
 from database import (
     DB_PATH,
     load_seasonal_phrases_from_file,
@@ -65,7 +66,7 @@ class Seasonal(commands.Cog):
             choices=["halloween", "new_year", "valentine", "spring", "easter", "server_birthday"],
             description="Какой сезон загрузить"
         ),
-        имя_файла: str = None
+        имя_файла: Optional[str] = None
     ):
         """Загружает фразы из файла (например, halloween.txt)."""
         if имя_файла is None:
@@ -130,10 +131,14 @@ class Seasonal(commands.Cog):
         await inter.response.defer(ephemeral=True)
         rotator = self.bot.get_cog("StatusRotator")
         if rotator:
-            await rotator.update_status()
-            await inter.edit_original_response(
-                "✅ Статус обновлён принудительно. Смотри консоль, что именно поставлено."
-            )
+            update_status = getattr(rotator, "update_status", None)
+            if callable(update_status):
+                await update_status()
+                await inter.edit_original_response(
+                    "✅ Статус обновлён принудительно. Смотри консоль, что именно поставлено."
+                )
+            else:
+                await inter.edit_original_response("❌ У когa StatusRotator нет метода обновления статуса.")
         else:
             await inter.edit_original_response("❌ Ког StatusRotator не найден.")
 
