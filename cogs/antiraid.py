@@ -287,8 +287,7 @@ class AntiRaid(commands.Cog):
                 result = "нарушитель уже вышел или не найден; автоматический бан не выполнялся"
         elif punishment == "timeout_3h" and member is not None:
             try:
-                until = disnake.utils.utcnow() + timedelta(hours=3)
-                await member.timeout(until, reason=reason)
+                await member.timeout(timedelta(hours=3), reason=reason)
                 result = "тайм-аут 3 часа"
             except (disnake.Forbidden, disnake.HTTPException) as exc:
                 result = f"не удалось выдать тайм-аут: {type(exc).__name__}"
@@ -307,7 +306,7 @@ class AntiRaid(commands.Cog):
             timestamp=disnake.utils.utcnow()
         )
         embed.set_footer(text=f"Fluffy Anti-Raid • Guild ID: {guild.id}")
-        await self.bot.log_dispatcher.send("mod", embed)
+        await getattr(self.bot, "log_dispatcher").send("mod", embed)
         try:
             await log_event("antiraid", f"{guild.id}|{action_type}|{actor_id}|{punishment}")
         except Exception:
@@ -319,6 +318,9 @@ class AntiRaid(commands.Cog):
     async def backup(self, inter: disnake.ApplicationCommandInteraction):
         await inter.response.defer(ephemeral=True)
         guild = inter.guild
+        if guild is None:
+            await inter.followup.send("Эта команда доступна только на сервере.", ephemeral=True)
+            return
         data = {
             "название_сервера": guild.name,
             "id_сервера": guild.id,
