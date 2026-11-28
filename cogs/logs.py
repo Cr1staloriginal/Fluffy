@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import disnake
 from disnake.ext import commands
@@ -28,7 +29,8 @@ def _value(value, limit=1000):
 
 class Logs(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
-        self.bot = bot
+        # log_dispatcher is added dynamically to the bot during application setup.
+        self.bot: Any = bot
 
     async def _actor(self, guild, action, target_id):
         try:
@@ -108,13 +110,15 @@ class Logs(commands.Cog):
             await self.bot.log_dispatcher.send("members", embed, event="member_avatar")
             await log_event("member_avatar", str(after.id))
 
-        if before.timed_out_until != after.timed_out_until:
+        before_timeout = getattr(before, "communication_disabled_until", None)
+        after_timeout = getattr(after, "communication_disabled_until", None)
+        if before_timeout != after_timeout:
             embed = disnake.Embed(title="⏱️ Изменён Timeout", color=disnake.Color.orange(), timestamp=disnake.utils.utcnow())
             embed.add_field(name="Участник", value=f"{after.mention} ({after.id})", inline=False)
-            until = disnake.utils.format_dt(after.timed_out_until, "F") if after.timed_out_until else "Timeout отсутствует"
+            until = disnake.utils.format_dt(after_timeout, "F") if after_timeout else "Timeout отсутствует"
             embed.add_field(name="Состояние", value=until, inline=False)
             await self.bot.log_dispatcher.send("mod", embed, event="member_timeout_state")
-            await log_event("member_timeout_state", f"{after.id}|{after.timed_out_until}")
+            await log_event("member_timeout_state", f"{after.id}|{after_timeout}")
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: disnake.Message):
