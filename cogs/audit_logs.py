@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import disnake
 from disnake.ext import commands
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class AuditLogs(commands.Cog):
     def __init__(self, bot: commands.InteractionBot):
-        self.bot = bot
+        self.bot: Any = bot
 
     async def actor_for(self, guild, action, target_id):
         try:
