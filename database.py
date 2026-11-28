@@ -196,11 +196,12 @@ async def init_db() -> None:
     await load_phrases_from_file()
 
 
-async def load_phrases_from_file():
+async def load_phrases_from_file() -> None:
     """Загружает фразы из templates.txt в таблицу phrases (season='default')."""
     async with aiosqlite.connect(str(DB_PATH)) as db:
         async with db.execute("SELECT COUNT(*) FROM phrases WHERE season = 'default'") as cur:
-            count = (await cur.fetchone())[0]
+            row = await cur.fetchone()
+            count = row[0] if row else 0
         if count > 0:
             print("[DB] Дефолтные фразы уже загружены.")
             return
@@ -357,27 +358,28 @@ async def get_voice_join_time(user_id: int) -> Optional[float]:
             return row[0] if row else None
 
 
-async def get_user_stats(user_id: int):
+async def get_user_stats(user_id: int) -> Optional[tuple[int, int, int]]:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         async with db.execute("SELECT messages_sent, voice_minutes, cookies_received FROM users WHERE user_id = ?", (user_id,)) as cur:
-            return await cur.fetchone()
+            row = await cur.fetchone()
+            return row if row is not None else None
 
 
 # ========== ВАРНЫ ==========
-async def add_warn(user_id: int, moderator_id: int, reason: str, rule_name: str = None, message_link: str = None) -> int:
+async def add_warn(user_id: int, moderator_id: int, reason: str, rule_name: Optional[str] = None, message_link: Optional[str] = None) -> int:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         cursor = await db.execute("""
             INSERT INTO warns (user_id, moderator_id, reason, rule_name, message_link, date)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (user_id, moderator_id, reason, rule_name, message_link, datetime.datetime.now().isoformat()))
         await db.commit()
-        return cursor.lastrowid
+        return int(cursor.lastrowid) if cursor.lastrowid is not None else 0
 
 
-async def get_user_warns(user_id: int) -> list:
+async def get_user_warns(user_id: int) -> list[Any]:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         async with db.execute("SELECT * FROM warns WHERE user_id = ? ORDER BY date DESC", (user_id,)) as cur:
-            return await cur.fetchall()
+            return list(await cur.fetchall())
 
 
 async def remove_warn(warn_id: int) -> bool:
@@ -408,7 +410,7 @@ async def add_moderation_case(
                 str(message_link)[:500],
             ),
         )
-        await db.commit()
+        await db.commit() if cursor.lastrowid is not None else 0
         return int(cursor.lastrowid)
 
 
@@ -472,7 +474,7 @@ async def get_today_birthdays(today: str) -> list[int]:
 async def add_suggestion(author_id: int, text: str) -> int:
     async with aiosqlite.connect(str(DB_PATH)) as db:
         cursor = await db.execute("INSERT INTO suggestions (author_id, text) VALUES (?, ?)", (author_id, text))
-        await db.commit()
+        await dint(cursor.lastrowid) if cursor.lastrowid is not None else 0
         return cursor.lastrowid
 
 
@@ -620,7 +622,7 @@ async def list_custom_commands(guild_id: int) -> list[tuple[str, str]]:
         async with db.execute(
             "SELECT name, response FROM custom_commands WHERE guild_id = ? ORDER BY name",
             (int(guild_id),),
-        ) as cur:
+        ) as cur:list(await cur.fetchall()
             return await cur.fetchall()
 
 
