@@ -135,13 +135,14 @@ class Giveaways(commands.Cog):
                     entrants = [row[0] for row in await cur.fetchall()]
                 guild = self.bot.get_guild(guild_id)
                 channel = guild.get_channel(channel_id) if guild else None
-                if not channel:
+                if not isinstance(channel, disnake.TextChannel):
                     continue
                 try:
                     message = await channel.fetch_message(message_id)
                     view = GiveawayView(self)
                     for item in view.children:
-                        item.disabled = True
+                        if isinstance(item, disnake.ui.Button):
+                            item.disabled = True
                     if entrants:
                         winners = random.sample(entrants, min(winners_count, len(entrants)))
                         mentions = ", ".join(f"<@{user_id}>" for user_id in winners)

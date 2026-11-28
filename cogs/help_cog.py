@@ -114,7 +114,8 @@ class HelpCog(commands.Cog):
                     f"• {option.name} — {getattr(option, 'description', '') or 'без описания'} ({required})"
                 )
             embed.add_field(name="Параметры", value="\n".join(lines)[:1024], inline=False)
-        embed.add_field(name="Категория", value=category_for(command.name, command.description or ""), inline=False)
+        command_description = getattr(command, "description", "") or ""
+        embed.add_field(name="Категория", value=category_for(command.name, command_description), inline=False)
         await inter.response.send_message(embed=embed, ephemeral=True)
 
 
