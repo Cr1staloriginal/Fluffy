@@ -1,5 +1,6 @@
 """Простая экономика сервера: баланс, ежедневная награда, переводы и предметы."""
 from datetime import datetime, timezone
+from typing import Optional
 
 import aiosqlite
 import disnake
@@ -66,7 +67,7 @@ class Economy(commands.Cog):
     async def balance(
         self,
         inter: disnake.ApplicationCommandInteraction,
-        участник: disnake.Member = None,
+        участник: Optional[disnake.Member] = None,
     ):
         if inter.guild is None:
             return await inter.response.send_message("Команда доступна только на сервере.", ephemeral=True)
@@ -78,6 +79,8 @@ class Economy(commands.Cog):
                 (inter.guild.id, target.id),
             ) as cur:
                 row = await cur.fetchone()
+        if row is None:
+            return await inter.response.send_message("Не удалось получить баланс.", ephemeral=True)
         await inter.response.send_message(
             f"💰 Баланс **{target.display_name}**: **{row[0]:,}** 🪙".replace(",", " "),
             ephemeral=True,
@@ -199,7 +202,7 @@ class Economy(commands.Cog):
     async def inventory(
         self,
         inter: disnake.ApplicationCommandInteraction,
-        участник: disnake.Member = None,
+        участник: Optional[disnake.Member] = None,
     ):
         if inter.guild is None:
             return await inter.response.send_message("Команда доступна только на сервере.", ephemeral=True)

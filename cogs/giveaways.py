@@ -18,7 +18,7 @@ class GiveawayView(disnake.ui.View):
         self.cog = cog
 
     @disnake.ui.button(label="Участвовать", emoji="🎉", style=disnake.ButtonStyle.success, custom_id="fluffy:giveaway:join")
-    async def join(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+    async def join(self, _button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if not inter.guild or not inter.message:
             return await inter.response.send_message("Участие доступно только на сервере.", ephemeral=True)
         async with aiosqlite.connect(str(DB_PATH)) as db:
