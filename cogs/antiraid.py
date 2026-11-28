@@ -393,10 +393,13 @@ class AntiRaid(commands.Cog):
     async def restore_backup(
         self,
         inter: disnake.ApplicationCommandInteraction,
-        имя_файла: str = None
+        имя_файла: str | None = None
     ):
         await inter.response.defer(ephemeral=True)
         guild = inter.guild
+        if guild is None:
+            await inter.edit_original_response(content="❌ Команда доступна только на сервере.")
+            return
         backup_dir = os.path.join(os.path.dirname(__file__), "..", "backups")
         if not os.path.exists(backup_dir):
             await inter.edit_original_response("❌ Папка с бэкапами не найдена.")
