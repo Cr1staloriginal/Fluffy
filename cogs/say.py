@@ -1,4 +1,5 @@
 import disnake
+from typing import Optional
 from disnake.ext import commands
 from utils.colors import main_color, accent_color
 

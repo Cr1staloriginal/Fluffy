@@ -37,7 +37,7 @@ class Reputation(commands.Cog):
     async def reputation(
         self,
         inter: disnake.ApplicationCommandInteraction,
-        участник: disnake.Member = None,
+        участник: Optional[disnake.Member] = None,
     ):
         if inter.guild is None:
             return await inter.response.send_message("Команда доступна только на сервере.", ephemeral=True)
