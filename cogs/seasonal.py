@@ -3,6 +3,7 @@ from disnake.ext import commands
 import aiosqlite
 from pathlib import Path
 from typing import Optional
+from inspect import isawaitable
 from database import (
     DB_PATH,
     load_seasonal_phrases_from_file,
@@ -133,7 +134,9 @@ class Seasonal(commands.Cog):
         if rotator:
             update_status = getattr(rotator, "update_status", None)
             if callable(update_status):
-                await update_status()
+                result = update_status()
+                if isawaitable(result):
+                    await result
                 await inter.edit_original_response(
                     "✅ Статус обновлён принудительно. Смотри консоль, что именно поставлено."
                 )
