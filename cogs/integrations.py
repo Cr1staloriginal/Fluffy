@@ -64,8 +64,8 @@ class Integrations(commands.Cog):
             except (disnake.NotFound, disnake.Forbidden, disnake.HTTPException):
                 logger.warning("Интеграции: канал %s недоступен на сервере %s", channel_id, guild.id)
                 return
-        if not hasattr(channel, "send") or getattr(getattr(channel, "guild", None), "id", None) != guild.id:
-            logger.warning("Интеграции: канал %s не принадлежит серверу %s", channel_id, guild.id)
+        if not isinstance(channel, disnake.TextChannel) or channel.guild.id != guild.id:
+            logger.warning("Интеграции: канал %s не является текстовым каналом сервера %s", channel_id, guild.id)
             return
         bot_member = guild.me
         if bot_member is None:
