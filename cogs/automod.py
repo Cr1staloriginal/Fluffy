@@ -263,7 +263,7 @@ class AutoMod(commands.Cog):
             return
 
         # ===== ИГНОРИРУЕМ УКАЗАННЫЕ КАНАЛЫ =====
-        if is_ignored_channel(message.channel.id, message.channel.name):
+        if is_ignored_channel(message.channel.id, getattr(message.channel, "name", None)):
             return
         if is_ignored_member(role.id for role in getattr(message.author, "roles", ())):
             return
@@ -462,8 +462,9 @@ class AutoMod(commands.Cog):
             )
 
             warns_cog = self.bot.get_cog("Warns")
-            if warns_cog:
-                await warns_cog.send_warn_to_mod_channel(
+            send_warn = getattr(warns_cog, "send_warn_to_mod_channel", None) if warns_cog else None
+            if send_warn:
+                await send_warn(
                     user_id=message.author.id,
                     reason=f"{rule_number} - {violation}",
                     rule_name=rule_name,
